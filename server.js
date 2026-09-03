@@ -11,6 +11,7 @@ const os = require('node:os');
 const { pipeline } = require('node:stream/promises');
 const { Readable } = require('node:stream');
 const ffmpegPath = require('ffmpeg-static');
+const cheerio = require('cheerio');
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -82,20 +83,55 @@ function downloadUrl(sourceUrl, format, index, height) {
   return '/api/download?' + params.toString();
 }
 
+function previewUrl(sourceUrl) {
+  return '/api/preview?url=' + encodeURIComponent(sourceUrl);
+}
+
+async function isDirectMedia(parsed) {
+  if (/\.(mp4|webm|mov|m4v|jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(parsed.pathname)) return true;
+  try {
+    const response = await fetch(parsed, { method: 'HEAD', redirect: 'follow' });
+    return /^image\/|^video\//i.test(response.headers.get('content-type') || '');
+  } catch { return false; }
+}
+
 function itemFromInfo(info, sourceUrl, index) {
   const heights = [...new Set((info.formats || []).map(format => format.height).filter(height => Number.isInteger(height)))].sort((a, b) => b - a);
   const image = /image|photo/i.test(info.ext || '') || (!heights.length && info.thumbnail);
+  const downloads = {
+    video: downloadUrl(sourceUrl, 'video', index),
+    image: downloadUrl(sourceUrl, 'image', index)
+  };
+  if (image && info.thumbnail) downloads.image = downloadUrl(info.thumbnail, 'image');
   return {
     index,
     title: info.title || `Media ${index}`,
-    thumbnail: info.thumbnail || '',
+    thumbnail: info.thumbnail ? previewUrl(info.thumbnail) : '',
     type: image ? 'image' : 'video',
     resolutions: heights.length ? heights : [],
-    downloads: {
-      video: downloadUrl(sourceUrl, 'video', index),
-      image: downloadUrl(sourceUrl, 'image', index)
-    }
+    downloads
   };
+}
+
+function flattenEntries(info) {
+  if (!info) return [];
+  if (!Array.isArray(info.entries)) return [info];
+  return info.entries.filter(Boolean).flatMap(entry => Array.isArray(entry.entries) ? flattenEntries(entry) : [entry]);
+}
+
+async function extractPageImages(parsed) {
+  const response = await fetch(parsed, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+  if (!response.ok) return [];
+  const html = await response.text();
+  const $ = cheerio.load(html);
+  const candidates = [];
+  $('meta[property="og:image"], meta[name="twitter:image"]').each((_, element) => candidates.push($(element).attr('content')));
+  $('img').each((_, element) => {
+    const sourceSet = $(element).attr('srcset') || $(element).attr('data-srcset');
+    const bestSource = sourceSet ? sourceSet.split(',').pop().trim().split(/\s+/)[0] : null;
+    candidates.push(bestSource || $(element).attr('data-src') || $(element).attr('data-lazy-src') || $(element).attr('src'));
+  });
+  return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))].slice(0, 30);
 }
 
 app.post('/api/media', async (req, res) => {
@@ -109,15 +145,23 @@ app.post('/api/media', async (req, res) => {
     try {
       const raw = await runYtDlp(extractorArgs(cacheKey));
       const info = JSON.parse(raw);
-      const entries = (info.entries || []).filter(Boolean);
-      const items = entries.length ? entries.map((entry, position) => itemFromInfo(entry, parsed.toString(), position + 1)) : [itemFromInfo(info, parsed.toString(), 1)];
+      const entries = flattenEntries(info);
+      const items = entries.length > 1 ? entries.map((entry, position) => itemFromInfo(entry, parsed.toString(), position + 1)) : [itemFromInfo(entries[0] || info, parsed.toString(), 1)];
       const data = { title: info.title || items[0].title, thumbnail: info.thumbnail || items[0].thumbnail, source: 'extractor', count: items.length, items };
       metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     } catch (extractorError) {
-      if (!/\.(mp4|webm|mov|m4v|jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(parsed.pathname)) throw extractorError;
+      if (!await isDirectMedia(parsed)) {
+        const imageUrls = await extractPageImages(parsed).catch(() => []);
+        if (imageUrls.length) {
+          const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl), type: 'image', resolutions: [], downloads: { image: downloadUrl(imageUrl, 'image') } })) };
+          metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+          return res.json(data);
+        }
+        throw extractorError;
+      }
       const isImage = /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(parsed.pathname);
-      const data = { title: path.basename(parsed.pathname) || 'Direct media', source: 'direct', count: 1, items: [{ index: 1, title: path.basename(parsed.pathname), thumbnail: isImage ? parsed.toString() : '', type: isImage ? 'image' : 'video', resolutions: [], downloads: { video: downloadUrl(parsed.toString(), 'video', 1), image: downloadUrl(parsed.toString(), 'image', 1) } }] };
+      const data = { title: path.basename(parsed.pathname) || 'Direct media', source: 'direct', count: 1, items: [{ index: 1, title: path.basename(parsed.pathname), thumbnail: isImage ? previewUrl(parsed.toString()) : '', type: isImage ? 'image' : 'video', resolutions: [], downloads: { video: downloadUrl(parsed.toString(), 'video', 1), image: downloadUrl(parsed.toString(), 'image', 1) } }] };
       metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     }
@@ -130,13 +174,14 @@ app.get('/api/download', async (req, res) => {
   try {
     const parsed = parseUrl(req.query.url);
     await rejectPrivateHost(parsed);
-    const directMedia = /\.(mp4|webm|mov|m4v|jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(parsed.pathname);
+    const directMedia = await isDirectMedia(parsed);
     if (directMedia) {
       const upstream = await fetch(parsed);
       if (!upstream.ok || !upstream.body) throw new Error('The media file could not be fetched.');
-      const extension = path.extname(parsed.pathname).slice(1).toLowerCase() || 'bin';
+      const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+      const extension = contentType.startsWith('image/') ? contentType.split('/')[1].split(';')[0].replace('jpeg', 'jpg') : path.extname(parsed.pathname).slice(1).toLowerCase() || 'mp4';
       res.setHeader('Content-Disposition', `attachment; filename="clipgrab-media.${extension}"`);
-      res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream');
+      res.setHeader('Content-Type', contentType);
       const contentLength = upstream.headers.get('content-length');
       if (contentLength) res.setHeader('Content-Length', contentLength);
       res.on('close', () => { if (!res.writableEnded) upstream.body.cancel().catch(() => {}); });
@@ -175,7 +220,27 @@ app.get('/api/download', async (req, res) => {
       await fsp.rm(tempDir, { recursive: true, force: true });
     }
   } catch (error) {
-    if (!res.headersSent) res.status(400).json({ error: error.message });
+    if (!res.headersSent) {
+      res.status(error.message === 'The download engine is unavailable.' ? 502 : 400);
+      res.setHeader('Content-Disposition', 'inline');
+      res.type('text/plain').send(error.message);
+    }
+  }
+});
+
+app.get('/api/preview', async (req, res) => {
+  try {
+    const parsed = parseUrl(req.query.url);
+    await rejectPrivateHost(parsed);
+    const upstream = await fetch(parsed, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+    if (!upstream.ok || !upstream.body) throw new Error('Preview unavailable.');
+    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+    if (!contentType.startsWith('image/')) throw new Error('Preview is not an image.');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    await pipeline(Readable.fromWeb(upstream.body), res);
+  } catch (error) {
+    if (!res.headersSent) res.status(404).type('text/plain').send(error.message);
   }
 });
 
