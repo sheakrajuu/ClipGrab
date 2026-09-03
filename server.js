@@ -17,6 +17,11 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '10kb' }));
 app.use(rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }));
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
 app.use(express.static(__dirname));
 
 function parseUrl(value) {
@@ -125,5 +130,5 @@ app.get('/api/download', async (req, res) => {
 });
 
 app.get(['/about', '/terms', '/privacy'], (req, res) => res.sendFile(path.join(__dirname, 'legal.html')));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'clipgrab-frontend.html')));
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'clipgrab.html')));
 app.listen(port, () => console.log(`ClipGrab running at http://localhost:${port}`));

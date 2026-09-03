@@ -1,6 +1,6 @@
 # ClipGrab
 
-A small Express web downloader for public media URLs and social pages.
+A small Express web downloader for public media URLs and social pages. The homepage is served from `clipgrab.html`.
 
 ## Run locally
 

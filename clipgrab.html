@@ -635,6 +635,20 @@
   const resultSub = document.getElementById('result-sub');
   const mediaGrid = document.getElementById('media-grid');
   let selectedPlatform = 'TikTok';
+  const storageKey = 'clipgrab-download-state';
+
+  function saveState(state) {
+    try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch {}
+  }
+
+  function readState() {
+    try { return JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch { return null; }
+  }
+
+  function setActiveTab(platform) {
+    const tab = document.querySelector(`.tab[data-platform="${platform}"]`);
+    if (tab) tab.click();
+  }
 
   function detectPlatform(value) {
     try {
@@ -662,10 +676,23 @@
   function renderMedia(items) {
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : 'video';
-      const resolutions = item.resolutions.length ? `<select class="resolution" data-download="${escapeHtml(item.downloads.video)}"><option value="">Choose resolution</option>${item.resolutions.map(height => `<option value="${height}">${height}p</option>`).join('')}</select>` : '';
+      const resolutions = item.resolutions.length ? `<select class="resolution" data-item="${item.index}" data-download="${escapeHtml(item.downloads.video)}"><option value="">Choose resolution</option>${item.resolutions.map(height => `<option value="${height}" ${item.selectedHeight === height ? 'selected' : ''}>${height}p</option>`).join('')}</select>` : '';
       const image = item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" alt="">` : '<div class="result-thumb"></div>';
       return `<article class="media-item">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${resolutions}<button class="dl-btn primary media-download" type="button" data-url="${escapeHtml(item.downloads[downloadType])}">Download ${downloadType}</button></div></article>`;
     }).join('');
+  }
+
+  function restoreResults(state) {
+    if (!state || !state.items || !state.items.length) return;
+    urlInput.value = state.url || '';
+    resultCard.classList.add('show');
+    resultTitle.textContent = state.title || 'Media ready';
+    resultSub.textContent = `${state.items.length} item${state.items.length === 1 ? '' : 's'} found. Choose a resolution where available.`;
+    renderMedia(state.items);
+    Object.entries(state.resolutions || {}).forEach(([index, height]) => {
+      const selector = mediaGrid.querySelector(`.resolution[data-item="${index}"]`);
+      if (selector) selector.value = height;
+    });
   }
 
   async function searchMedia(value) {
@@ -680,6 +707,7 @@
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
     resultSub.textContent = `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found. Choose a resolution where available.`;
     renderMedia(data.items || []);
+    saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, items: data.items || [] });
   }
 
   tabs.forEach(tab => {
@@ -696,6 +724,7 @@
       ).join('');
       resultCard.classList.remove('show');
       mediaGrid.innerHTML = '';
+      saveState({ platform: selectedPlatform, url: urlInput.value });
     });
   });
 
@@ -718,7 +747,13 @@
     }
   });
 
-  mediaGrid.addEventListener('change', e => { if (e.target.matches('.resolution')) e.target.dataset.selected = e.target.value; });
+  mediaGrid.addEventListener('change', e => {
+    if (!e.target.matches('.resolution')) return;
+    const state = readState() || {};
+    state.resolutions = state.resolutions || {};
+    state.resolutions[e.target.dataset.item] = e.target.value;
+    saveState(state);
+  });
   mediaGrid.addEventListener('click', e => {
     const button = e.target.closest('.media-download');
     if (!button) return;
@@ -730,6 +765,14 @@
   document.getElementById('paste-btn').addEventListener('click', async () => {
     try { urlInput.value = await navigator.clipboard.readText(); urlInput.focus(); } catch { urlInput.focus(); }
   });
+  urlInput.addEventListener('input', () => saveState({ platform: selectedPlatform, url: urlInput.value }));
+
+  const savedState = readState();
+  if (savedState) {
+    if (savedState.platform && savedState.platform !== selectedPlatform) setActiveTab(savedState.platform);
+    urlInput.value = savedState.url || '';
+    restoreResults(savedState);
+  }
   document.querySelector('.web-cta').addEventListener('click', () => { document.querySelector('.tab[data-platform="Web"]').click(); urlInput.focus(); });
 
   // FAQ accordion
