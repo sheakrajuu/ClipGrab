@@ -169,6 +169,14 @@ function flattenEntries(info) {
   return info.entries.filter(Boolean).flatMap(entry => Array.isArray(entry.entries) ? flattenEntries(entry) : [entry]);
 }
 
+function publicSourceError(error) {
+  const message = String(error && error.message || '');
+  if (/cloudflare|anti-bot|captcha|http error 403|forbidden/i.test(message)) {
+    return new Error('The source website blocked server access. Try opening the link in a browser or use the alternative downloader.');
+  }
+  return error;
+}
+
 function isInstagramResizedPreview(value) {
   try {
     const parsed = new URL(value);
@@ -202,6 +210,18 @@ async function extractPageImages(parsed) {
     for (const attribute of ['src', 'data-src', 'data-lazy-src', 'data-original', 'data-original-src', 'data-url', 'data-image']) candidates.push($(element).attr(attribute));
   });
   return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))].slice(0, 30);
+}
+
+async function extractPageVideos(parsed) {
+  const response = await fetch(parsed, { signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+  if (!response.ok) return [];
+  const $ = cheerio.load(await response.text());
+  const candidates = [];
+  $('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player:stream"]').each((_, element) => candidates.push($(element).attr('content')));
+  $('video, video source, source').each((_, element) => {
+    for (const attribute of ['src', 'data-src', 'data-video', 'data-url']) candidates.push($(element).attr(attribute));
+  });
+  return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))].slice(0, 10);
 }
 
 app.post('/api/media', async (req, res) => {
@@ -238,10 +258,17 @@ app.post('/api/media', async (req, res) => {
           metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
           return res.json(data);
         }
+        const videoUrls = await extractPageVideos(parsed).catch(() => []);
+        if (videoUrls.length) {
+          logStage('video extraction succeeded', parsed, `${videoUrls.length} candidates`);
+          const data = { title: 'Videos found', source: 'web-videos', count: videoUrls.length, items: videoUrls.map((videoUrl, position) => ({ index: position + 1, title: `Video ${position + 1}`, thumbnail: '', type: 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { video: downloadUrl(videoUrl, 'video') } })) };
+          metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+          return res.json(data);
+        }
         if (extractorError.message.includes('No video formats found') || extractorError.message.includes('Unsupported URL')) {
           throw new Error('No downloadable media was found at this URL.');
         }
-        throw extractorError;
+        throw publicSourceError(extractorError);
       }
       const isImage = await directMediaType(parsed) === 'image';
       const data = { title: path.basename(parsed.pathname) || 'Direct media', source: 'direct', count: 1, items: [{ index: 1, title: path.basename(parsed.pathname), thumbnail: isImage ? previewUrl(parsed.toString()) : '', type: isImage ? 'image' : 'video', resolutions: [], downloads: { video: downloadUrl(parsed.toString(), 'video', 1), image: downloadUrl(parsed.toString(), 'image', 1) } }] };
