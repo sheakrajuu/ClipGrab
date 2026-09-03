@@ -208,6 +208,8 @@
     border-color:var(--accent);
     color:#fff;
   }
+  .external-download{display:inline-block;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--section);color:var(--text);font-family:inherit;text-decoration:none;cursor:pointer;}
+  .external-download:hover{border-color:var(--accent-dark);background:#EEF0E8;}
 
   /* ---------- Cross links (Instagram/FB/Twitter cards) ---------- */
   .cross-links{
@@ -652,28 +654,60 @@
     return String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
   }
 
+  function snapVidUrl(platform) {
+    return ({TikTok:'https://en.snapvid.app/', Instagram:'https://snapvid.net/en/instagram-downloader', Facebook:'https://snapvid.net/en/facebook-downloader', Twitter:'https://snapvid.net/en2/twitter-downloader', X:'https://snapvid.net/en2/twitter-downloader', Web:'https://snapvid.net/en/'})[platform] || 'https://snapvid.net/en/';
+  }
+
+  function failedUrlPlatform() {
+    const platform = detectPlatform(urlInput.value.trim());
+    return platform === 'Social media' ? selectedPlatform : platform;
+  }
+
+  function showErrorWithFallback(message, platform = selectedPlatform) {
+    resultSub.textContent = message || 'The media could not be downloaded.';
+    const link = document.createElement('a');
+    link.className = 'external-download';
+    link.href = snapVidUrl(platform);
+    link.dataset.sourceUrl = urlInput.value.trim();
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'Try with SnapVid';
+    resultSub.append(' ', link);
+  }
+
   async function triggerDownload(target) {
     if (!target) return;
     const response = await fetch(target);
-    if (!response.ok) throw new Error('The media could not be downloaded.');
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || 'The media could not be downloaded.');
+    }
     const blobUrl = URL.createObjectURL(await response.blob());
     const link = document.createElement('a');
     link.href = blobUrl;
-    link.download = 'clipgrab-media';
+    const disposition = response.headers.get('content-disposition') || '';
+    const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+    link.download = filename || 'clipgrab-media';
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(blobUrl);
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   }
 
   function renderMedia(items) {
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : 'video';
       const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
+      const downloadTarget = item.downloads[downloadType] || '';
+      const snapVidFallback = item.type === 'image' && !downloadTarget && failedUrlPlatform() === 'Instagram'
+        ? '<a class="external-download snapvid-link" href="https://snapvid.net/en/instagram-downloader" target="_blank" rel="noopener">Try on SnapVid</a>'
+        : '';
       const resolutions = item.resolutions.length ? `<select class="resolution" data-item="${item.index}" data-download="${escapeHtml(item.downloads.video)}"><option value="">Choose resolution</option>${item.resolutions.map(height => `<option value="${height}" ${item.selectedHeight === height ? 'selected' : ''}>${height}p</option>`).join('')}</select>` : '';
       const image = item.type === 'image'
         ? (item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" alt="">` : '<div class="result-thumb"></div>')
         : (tooLong ? '<div class="result-thumb"></div>' : `<video controls preload="metadata"${item.thumbnail ? ` poster="${escapeHtml(item.thumbnail)}"` : ''} src="${escapeHtml(item.downloads.video)}&preview=1"></video>`);
       const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
-      return `<article class="media-item">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${tooLong ? '' : resolutions}<button class="dl-btn primary media-download" type="button" data-url="${escapeHtml(item.downloads[downloadType])}" ${tooLong ? 'disabled' : ''}>${tooLong ? 'Unavailable' : `Download ${downloadType}`}</button></div></article>`;
+      return `<article class="media-item">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
     }).join('');
   }
 
@@ -749,7 +783,7 @@
     } catch (error) {
       resultCard.classList.add('show');
       resultTitle.textContent = 'Could not find that media';
-      resultSub.textContent = error.message || 'Check the URL and try again.';
+      showErrorWithFallback(error.message || 'Check the URL and try again.', failedUrlPlatform());
       fetchHint.textContent = error.message || 'Could not find that media.';
       mediaGrid.innerHTML = '';
     }
@@ -762,19 +796,28 @@
     state.resolutions[e.target.dataset.item] = e.target.value;
     saveState(state);
   });
-  mediaGrid.addEventListener('click', e => {
+  resultCard.addEventListener('click', e => {
     const button = e.target.closest('.media-download');
     if (!button) return;
     const selector = button.parentElement.querySelector('.resolution');
     const target = selector && selector.value ? selector.dataset.download + '&height=' + encodeURIComponent(selector.value) : button.dataset.url;
     button.disabled = true;
     triggerDownload(target).catch(error => {
-      resultSub.textContent = error.message || 'The media could not be downloaded.';
+      showErrorWithFallback(error.message || 'The media could not be downloaded.');
     }).finally(() => { button.disabled = false; });
   });
 
   document.getElementById('paste-btn').addEventListener('click', async () => {
     try { urlInput.value = await navigator.clipboard.readText(); urlInput.focus(); } catch { urlInput.focus(); }
+  });
+  mediaGrid.addEventListener('click', e => {
+    const link = e.target.closest('.snapvid-link');
+    if (!link) return;
+    e.preventDefault();
+    const target = link.href;
+    const sourceUrl = link.dataset.sourceUrl || urlInput.value.trim();
+    navigator.clipboard.writeText(sourceUrl).catch(() => {});
+    window.open(target, '_blank', 'noopener');
   });
   urlInput.addEventListener('input', () => saveState({ platform: selectedPlatform, url: urlInput.value }));
 

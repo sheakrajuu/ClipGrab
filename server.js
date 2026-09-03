@@ -22,6 +22,8 @@ const metadataCacheTtl = 5 * 60 * 1000;
 const socialMediaHosts = new Set(['tiktok.com', 'instagram.com', 'facebook.com', 'fb.watch', 'x.com', 'twitter.com', 'youtube.com', 'youtu.be', 'pinterest.com', 'reddit.com']);
 const socialVideoLimitSeconds = 10 * 60;
 const webVideoLimitSeconds = 15 * 60;
+const upstreamTimeoutMs = 120000;
+const metadataTimeoutMs = 30000;
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
@@ -41,6 +43,11 @@ function parseUrl(value) {
   const parsed = new URL(value);
   if (!allowedProtocols.has(parsed.protocol)) throw new Error('Only HTTP and HTTPS URLs are supported.');
   return parsed;
+}
+
+function logStage(stage, parsed, details = '') {
+  const target = parsed ? `${parsed.origin}${parsed.pathname}` : 'unknown URL';
+  console.info(`[clipgrab] ${stage} ${target}${details ? ` - ${details}` : ''}`);
 }
 
 function isSocialMediaUrl(parsed) {
@@ -67,29 +74,42 @@ async function rejectPrivateHost(parsed) {
   }
 }
 
-function runYtDlp(args) {
+function runCommand(command, commandArgs, unavailableMessage) {
   return new Promise((resolve, reject) => {
-    const command = process.platform === 'win32' ? 'py' : 'python3';
-    const commandArgs = ['-m', 'yt_dlp', ...args];
     const child = spawn(command, commandArgs, { windowsHide: true });
     let output = '';
     let error = '';
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error('The source took too long to respond.'));
+    }, upstreamTimeoutMs);
     child.stdout.on('data', chunk => { output += chunk; });
     child.stderr.on('data', chunk => { error += chunk; });
-    child.on('error', () => reject(new Error('yt-dlp is not installed or is not available on PATH.')));
-    child.on('close', code => code === 0 ? resolve(output) : reject(new Error(error.trim() || 'The source could not be resolved.')));
+    child.on('error', () => { clearTimeout(timeout); reject(new Error(unavailableMessage)); });
+    child.on('close', code => { clearTimeout(timeout); code === 0 ? resolve(output) : reject(new Error(error.trim() || 'The source could not be resolved.')); });
   });
 }
 
-function runYtDlpToFile(args, outputPath) {
-  return new Promise((resolve, reject) => {
-    const command = process.platform === 'win32' ? 'py' : 'python3';
-    const child = spawn(command, ['-m', 'yt_dlp', '--ffmpeg-location', ffmpegPath, ...args, '-o', outputPath], { windowsHide: true });
-    let error = '';
-    child.stderr.on('data', chunk => { error += chunk; });
-    child.on('error', () => reject(new Error('The download engine is unavailable.')));
-    child.on('close', code => code === 0 ? resolve() : reject(new Error(error.trim() || 'The media could not be downloaded.')));
-  });
+function ytDlpCommands(args) {
+  if (process.platform === 'win32') return [['yt-dlp', args], ['py', ['-m', 'yt_dlp', ...args]]];
+  return [['yt-dlp', args], ['python3', ['-m', 'yt_dlp', ...args]]];
+}
+
+async function runYtDlp(args) {
+  let lastError;
+  for (const [command, commandArgs] of ytDlpCommands(args)) {
+    try { return await runCommand(command, commandArgs, 'The download engine is unavailable.'); } catch (error) { lastError = error; }
+  }
+  throw lastError;
+}
+
+async function runYtDlpToFile(args, outputPath) {
+  let lastError;
+  const fullArgs = ['--ffmpeg-location', ffmpegPath, ...args, '-o', outputPath];
+  for (const [command, commandArgs] of ytDlpCommands(fullArgs)) {
+    try { await runCommand(command, commandArgs, 'The download engine is unavailable.'); return; } catch (error) { lastError = error; }
+  }
+  throw lastError;
 }
 
 function extractorArgs(sourceUrl) {
@@ -111,7 +131,7 @@ async function directMediaType(parsed) {
   if (/\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) return 'video';
   if (/\.(jpg|jpeg|png|gif|webp|avif)(\?.*)?$/i.test(parsed.pathname)) return 'image';
   try {
-    const response = await fetch(parsed, { method: 'HEAD', redirect: 'follow' });
+    const response = await fetch(parsed, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
     const contentType = response.headers.get('content-type') || '';
     if (/^image\//i.test(contentType)) return 'image';
     if (/^video\//i.test(contentType)) return 'video';
@@ -149,17 +169,37 @@ function flattenEntries(info) {
   return info.entries.filter(Boolean).flatMap(entry => Array.isArray(entry.entries) ? flattenEntries(entry) : [entry]);
 }
 
+function isInstagramResizedPreview(value) {
+  try {
+    const parsed = new URL(value);
+    return /(^|\.)instagram\.com$/i.test(parsed.hostname) || /(^|\.)cdninstagram\.com$/i.test(parsed.hostname)
+      ? /(?:^|[_-])s\d+x\d+(?:[_-]|$)/i.test(parsed.search) || /(?:^|&)stp=[^&]*s\d+x\d+/i.test(parsed.search)
+      : false;
+  } catch {
+    return false;
+  }
+}
+
 async function extractPageImages(parsed) {
-  const response = await fetch(parsed, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+  const response = await fetch(parsed, { signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
   if (!response.ok) return [];
   const html = await response.text();
   const $ = cheerio.load(html);
   const candidates = [];
-  $('meta[property="og:image"], meta[name="twitter:image"]').each((_, element) => candidates.push($(element).attr('content')));
-  $('img').each((_, element) => {
-    const sourceSet = $(element).attr('srcset') || $(element).attr('data-srcset');
-    const bestSource = sourceSet ? sourceSet.split(',').pop().trim().split(/\s+/)[0] : null;
-    candidates.push(bestSource || $(element).attr('data-src') || $(element).attr('data-lazy-src') || $(element).attr('src'));
+  const addSourceSet = sourceSet => {
+    if (!sourceSet) return;
+    const sources = sourceSet.split(',').map(source => {
+      const parts = source.trim().split(/\s+/);
+      const descriptor = parts[1] || '';
+      const value = Number.parseFloat(descriptor);
+      return { url: parts[0], score: descriptor.endsWith('w') ? value : descriptor.endsWith('x') ? value * 100000 : 0 };
+    }).filter(source => source.url).sort((a, b) => b.score - a.score);
+    if (sources[0]) candidates.push(sources[0].url);
+  };
+  $('meta[property="og:image"], meta[property="og:image:url"], meta[name="twitter:image"], meta[name="twitter:image:src"]').each((_, element) => candidates.push($(element).attr('content')));
+  $('picture source, img').each((_, element) => {
+    addSourceSet($(element).attr('srcset') || $(element).attr('data-srcset'));
+    for (const attribute of ['src', 'data-src', 'data-lazy-src', 'data-original', 'data-original-src', 'data-url', 'data-image']) candidates.push($(element).attr(attribute));
   });
   return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))].slice(0, 30);
 }
@@ -167,6 +207,7 @@ async function extractPageImages(parsed) {
 app.post('/api/media', async (req, res) => {
   try {
     const parsed = parseUrl(req.body.url);
+    logStage('media request', parsed);
     await rejectPrivateHost(parsed);
     const cacheKey = parsed.toString();
     const cached = metadataCache.get(cacheKey);
@@ -192,9 +233,13 @@ app.post('/api/media', async (req, res) => {
       if (!await isDirectMedia(parsed)) {
         const imageUrls = await extractPageImages(parsed).catch(() => []);
         if (imageUrls.length) {
-          const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl), type: 'image', resolutions: [], downloads: { image: downloadUrl(imageUrl, 'image') } })) };
+          logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
+          const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl), type: 'image', resolutions: [], downloads: { image: isInstagramResizedPreview(imageUrl) ? '' : downloadUrl(imageUrl, 'image') } })) };
           metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
           return res.json(data);
+        }
+        if (extractorError.message.includes('No video formats found') || extractorError.message.includes('Unsupported URL')) {
+          throw new Error('No downloadable media was found at this URL.');
         }
         throw extractorError;
       }
@@ -204,6 +249,7 @@ app.post('/api/media', async (req, res) => {
       return res.json(data);
     }
   } catch (error) {
+    console.warn(`[clipgrab] media failed - ${error.message}`);
     res.status(400).json({ error: error.message });
   }
 });
@@ -212,7 +258,8 @@ app.get('/api/download', async (req, res) => {
   try {
     const parsed = parseUrl(req.query.url);
     await rejectPrivateHost(parsed);
-    const format = req.query.format === 'audio' ? 'audio' : 'video';
+    const format = ['audio', 'image', 'video'].includes(req.query.format) ? req.query.format : 'video';
+    logStage('download request', parsed, format);
     const directMedia = await isDirectMedia(parsed);
     if (directMedia && format === 'video' && /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) {
       try {
@@ -223,9 +270,10 @@ app.get('/api/download', async (req, res) => {
       }
     }
     if (directMedia) {
-      const upstream = await fetch(parsed);
+      const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(upstreamTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
       if (!upstream.ok || !upstream.body) throw new Error('The media file could not be fetched.');
-      const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+      const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!(format === 'image' ? /^image\// : /^video\//).test(contentType)) throw new Error('The source did not return a valid media file.');
       const extension = contentType.startsWith('image/') ? contentType.split('/')[1].split(';')[0].replace('jpeg', 'jpg') : path.extname(parsed.pathname).slice(1).toLowerCase() || 'mp4';
       res.setHeader('Content-Disposition', `attachment; filename="clipgrab-media.${extension}"`);
       res.setHeader('Content-Type', contentType);
@@ -272,6 +320,7 @@ app.get('/api/download', async (req, res) => {
       await fsp.rm(tempDir, { recursive: true, force: true });
     }
   } catch (error) {
+    console.warn(`[clipgrab] download failed - ${error.message}`);
     if (!res.headersSent) {
       res.status(error.message === 'The download engine is unavailable.' ? 502 : 400);
       res.setHeader('Content-Disposition', 'inline');
@@ -284,10 +333,10 @@ app.get('/api/preview', async (req, res) => {
   try {
     const parsed = parseUrl(req.query.url);
     await rejectPrivateHost(parsed);
-    const upstream = await fetch(parsed, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+    const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
     if (!upstream.ok || !upstream.body) throw new Error('Preview unavailable.');
-    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
-    if (!contentType.startsWith('image/')) throw new Error('Preview is not an image.');
+    const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!/^image\//.test(contentType)) throw new Error('Preview is not an image.');
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=300');
     await pipeline(Readable.fromWeb(upstream.body), res);
