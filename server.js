@@ -107,12 +107,20 @@ function previewUrl(sourceUrl) {
   return '/api/preview?url=' + encodeURIComponent(sourceUrl);
 }
 
-async function isDirectMedia(parsed) {
-  if (/\.(mp4|webm|mov|m4v|jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(parsed.pathname)) return true;
+async function directMediaType(parsed) {
+  if (/\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) return 'video';
+  if (/\.(jpg|jpeg|png|gif|webp|avif)(\?.*)?$/i.test(parsed.pathname)) return 'image';
   try {
     const response = await fetch(parsed, { method: 'HEAD', redirect: 'follow' });
-    return /^image\/|^video\//i.test(response.headers.get('content-type') || '');
-  } catch { return false; }
+    const contentType = response.headers.get('content-type') || '';
+    if (/^image\//i.test(contentType)) return 'image';
+    if (/^video\//i.test(contentType)) return 'video';
+  } catch {}
+  return null;
+}
+
+async function isDirectMedia(parsed) {
+  return Boolean(await directMediaType(parsed));
 }
 
 function itemFromInfo(info, sourceUrl, index) {
@@ -164,6 +172,12 @@ app.post('/api/media', async (req, res) => {
     const cached = metadataCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return res.json(cached.data);
     metadataCache.delete(cacheKey);
+    const directType = await directMediaType(parsed);
+    if (directType === 'image') {
+      const data = { title: path.basename(parsed.pathname) || 'Direct image', source: 'direct', count: 1, items: [{ index: 1, title: path.basename(parsed.pathname) || 'Image', thumbnail: previewUrl(parsed.toString()), type: 'image', resolutions: [], downloads: { image: downloadUrl(parsed.toString(), 'image', 1) } }] };
+      metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+      return res.json(data);
+    }
     try {
       const raw = await runYtDlp(extractorArgs(cacheKey));
       const info = JSON.parse(raw);
@@ -184,7 +198,7 @@ app.post('/api/media', async (req, res) => {
         }
         throw extractorError;
       }
-      const isImage = /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(parsed.pathname);
+      const isImage = await directMediaType(parsed) === 'image';
       const data = { title: path.basename(parsed.pathname) || 'Direct media', source: 'direct', count: 1, items: [{ index: 1, title: path.basename(parsed.pathname), thumbnail: isImage ? previewUrl(parsed.toString()) : '', type: isImage ? 'image' : 'video', resolutions: [], downloads: { video: downloadUrl(parsed.toString(), 'video', 1), image: downloadUrl(parsed.toString(), 'image', 1) } }] };
       metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
@@ -249,7 +263,8 @@ app.get('/api/download', async (req, res) => {
         await runYtDlpToFile(['-f', 'best', ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', parsed.toString()], outputPath);
       }
       const stats = await fsp.stat(outputPath);
-      res.setHeader('Content-Disposition', `attachment; filename="clipgrab-${format}.${format === 'audio' ? 'm4a' : 'mp4'}"`);
+      const disposition = req.query.preview === '1' ? 'inline' : 'attachment';
+      res.setHeader('Content-Disposition', `${disposition}; filename="clipgrab-${format}.${format === 'audio' ? 'm4a' : 'mp4'}"`);
       res.setHeader('Content-Type', format === 'audio' ? 'audio/mp4' : 'video/mp4');
       res.setHeader('Content-Length', stats.size);
       await pipeline(fs.createReadStream(outputPath), res);

@@ -173,6 +173,7 @@
   .result-card.show{display:flex;}
   .result-card.gallery{display:none;}
   .result-card.gallery.show{display:block;}
+  .result-card{display:none !important;}
   .result-thumb{
     width:96px;height:96px;
     border-radius:10px;
@@ -180,9 +181,9 @@
     flex-shrink:0;
   }
   .result-body{flex:1;min-width:0;}
-  .media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:640px;margin:20px auto 0;}
-  .media-item{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px;display:flex;gap:12px;align-items:flex-start;}
-  .media-item img{width:100px;height:100px;object-fit:cover;border-radius:8px;background:#27302C;flex-shrink:0;}
+  .media-grid{display:grid;grid-template-columns:1fr;gap:16px;max-width:760px;margin:20px auto 0;}
+  .media-item{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px;}
+  .media-item img,.media-item video{display:block;width:100%;max-height:520px;aspect-ratio:16 / 9;object-fit:contain;border-radius:8px;background:#101316;margin-bottom:12px;}
   .media-item-body{min-width:0;flex:1}.media-item-title{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;}
   .resolution{width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fff;font:12px Inter,sans-serif;margin-bottom:8px;}
   .web-download{max-width:1080px;margin:56px auto 0;padding:0 24px;position:relative;z-index:3;}.web-download-inner{background:#1c2421;color:#fff;border-radius:var(--radius);padding:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}.web-download h2{margin:0 0 6px;font-size:24px}.web-download p{color:#b9c1b8;margin:0;font-size:14px;max-width:570px}.web-cta{display:inline-block;background:var(--accent);color:var(--bg);border-radius:7px;padding:11px 15px;font:700 13px Inter,sans-serif;white-space:nowrap}
@@ -387,8 +388,7 @@
     .fetch-bar{flex-direction:column;border-radius:16px;}
     .fetch-bar button{margin-top:6px;}
     .media-grid{grid-template-columns:1fr;}
-    .media-item{flex-direction:column;}
-    .media-item img,.media-item .result-thumb{width:100%;height:auto;aspect-ratio:16 / 9;object-fit:cover;}
+    .media-item img,.media-item video{max-height:420px;}
     .media-item-body{width:100%;}
     .media-download{width:100%;}
     .web-download-inner{align-items:stretch;flex-direction:column;padding:22px;}.web-cta{text-align:center;}
@@ -617,6 +617,7 @@
   const heroTitle = document.getElementById('hero-title');
   const heroSub = document.getElementById('hero-sub');
   const urlInput = document.getElementById('url-input');
+  const fetchHint = document.getElementById('fetch-hint');
   const stepsWrap = document.getElementById('how-to-steps');
   const resultCard = document.getElementById('result-card');
   const resultTitle = document.getElementById('result-title');
@@ -651,14 +652,16 @@
     return String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
   }
 
-  function triggerDownload(target) {
+  async function triggerDownload(target) {
     if (!target) return;
+    const response = await fetch(target);
+    if (!response.ok) throw new Error('The media could not be downloaded.');
+    const blobUrl = URL.createObjectURL(await response.blob());
     const link = document.createElement('a');
-    link.href = target;
+    link.href = blobUrl;
     link.download = 'clipgrab-media';
-    link.target = '_blank';
-    link.rel = 'noopener';
     link.click();
+    URL.revokeObjectURL(blobUrl);
   }
 
   function renderMedia(items) {
@@ -666,7 +669,9 @@
       const downloadType = item.type === 'image' ? 'image' : 'video';
       const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
       const resolutions = item.resolutions.length ? `<select class="resolution" data-item="${item.index}" data-download="${escapeHtml(item.downloads.video)}"><option value="">Choose resolution</option>${item.resolutions.map(height => `<option value="${height}" ${item.selectedHeight === height ? 'selected' : ''}>${height}p</option>`).join('')}</select>` : '';
-      const image = item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" alt="">` : '<div class="result-thumb"></div>';
+      const image = item.type === 'image'
+        ? (item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" alt="">` : '<div class="result-thumb"></div>')
+        : (tooLong ? '<div class="result-thumb"></div>' : `<video controls preload="metadata"${item.thumbnail ? ` poster="${escapeHtml(item.thumbnail)}"` : ''} src="${escapeHtml(item.downloads.video)}&preview=1"></video>`);
       const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
       return `<article class="media-item">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${tooLong ? '' : resolutions}<button class="dl-btn primary media-download" type="button" data-url="${escapeHtml(item.downloads[downloadType])}" ${tooLong ? 'disabled' : ''}>${tooLong ? 'Unavailable' : `Download ${downloadType}`}</button></div></article>`;
     }).join('');
@@ -687,6 +692,7 @@
 
   async function searchMedia(value) {
     new URL(value);
+    fetchHint.textContent = 'Finding media...';
     resultCard.classList.add('show');
     resultTitle.textContent = 'Finding media...';
     resultSub.textContent = 'Checking the source and available formats.';
@@ -697,6 +703,7 @@
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
     resultSub.textContent = `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found. Choose a resolution where available.`;
     renderMedia(data.items || []);
+    fetchHint.textContent = 'Enjoy your media.';
     saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, items: data.items || [] });
   }
 
@@ -743,6 +750,7 @@
       resultCard.classList.add('show');
       resultTitle.textContent = 'Could not find that media';
       resultSub.textContent = error.message || 'Check the URL and try again.';
+      fetchHint.textContent = error.message || 'Could not find that media.';
       mediaGrid.innerHTML = '';
     }
   });
@@ -759,7 +767,10 @@
     if (!button) return;
     const selector = button.parentElement.querySelector('.resolution');
     const target = selector && selector.value ? selector.dataset.download + '&height=' + encodeURIComponent(selector.value) : button.dataset.url;
-    triggerDownload(target);
+    button.disabled = true;
+    triggerDownload(target).catch(error => {
+      resultSub.textContent = error.message || 'The media could not be downloaded.';
+    }).finally(() => { button.disabled = false; });
   });
 
   document.getElementById('paste-btn').addEventListener('click', async () => {
