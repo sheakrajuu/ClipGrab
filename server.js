@@ -145,7 +145,7 @@ async function isDirectMedia(parsed) {
 
 function itemFromInfo(info, sourceUrl, index) {
   const heights = [...new Set((info.formats || []).map(format => format.height).filter(height => Number.isInteger(height)))].sort((a, b) => b - a);
-  const image = /^(jpg|jpeg|png|gif|webp|avif)$/i.test(info.ext || '') || (!heights.length && info.thumbnail);
+  const image = /^(jpg|jpeg|png|gif|webp|avif)$/i.test(info.ext || '');
   const originalImageUrl = image && /^https?:/i.test(info.url || '') ? info.url : sourceUrl;
   const downloads = {
     video: downloadUrl(sourceUrl, 'video', index),
