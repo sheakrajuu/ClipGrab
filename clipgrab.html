@@ -626,7 +626,7 @@
   const resultSub = document.getElementById('result-sub');
   const mediaGrid = document.getElementById('media-grid');
   let selectedPlatform = 'TikTok';
-  const storageKey = 'clipgrab-download-state';
+  const storageKey = 'clipgrab-download-state-v2';
 
   function saveState(state) {
     try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch {}

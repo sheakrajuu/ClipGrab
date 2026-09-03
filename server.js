@@ -97,8 +97,10 @@ function ytDlpCommands(args) {
 
 async function runYtDlp(args) {
   let lastError;
-  for (const [command, commandArgs] of ytDlpCommands(args)) {
-    try { return await runCommand(command, commandArgs, 'The download engine is unavailable.'); } catch (error) { lastError = error; }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (const [command, commandArgs] of ytDlpCommands(args)) {
+      try { return await runCommand(command, commandArgs, 'The download engine is unavailable.'); } catch (error) { lastError = error; }
+    }
   }
   throw lastError;
 }
@@ -322,7 +324,7 @@ app.get('/api/download', async (req, res) => {
       assertDurationAllowed(metadata, parsed);
       flattenEntries(metadata).forEach(entry => assertDurationAllowed(entry, parsed));
     }
-    const quality = Number.isInteger(height) && height > 0 ? `bestvideo[height<=${height}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${height}][ext=mp4]/best` : 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best';
+    const quality = Number.isInteger(height) && height > 0 ? `bestvideo[height<=${height}][ext=mp4]+bestaudio/best[height<=${height}][ext=mp4]/best` : 'bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best';
     const args = format === 'audio' ? ['-f', 'bestaudio[ext=m4a]/bestaudio', ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--no-part', parsed.toString()] : ['-f', quality, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--merge-output-format', 'mp4', parsed.toString()];
     const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'clipgrab-'));
     const outputPath = path.join(tempDir, format === 'audio' ? 'clipgrab-audio.m4a' : 'clipgrab-video.mp4');
