@@ -5,13 +5,19 @@ const rateLimit = require('express-rate-limit');
 const { spawn } = require('node:child_process');
 const dns = require('node:dns').promises;
 const path = require('node:path');
+const fs = require('node:fs');
+const fsp = require('node:fs/promises');
+const os = require('node:os');
 const { pipeline } = require('node:stream/promises');
 const { Readable } = require('node:stream');
+const ffmpegPath = require('ffmpeg-static');
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 const maxUrlLength = 2048;
 const allowedProtocols = new Set(['http:', 'https:']);
+const metadataCache = new Map();
+const metadataCacheTtl = 5 * 60 * 1000;
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
@@ -42,8 +48,8 @@ async function rejectPrivateHost(parsed) {
 
 function runYtDlp(args) {
   return new Promise((resolve, reject) => {
-    const command = process.platform === 'win32' ? 'py' : 'yt-dlp';
-    const commandArgs = process.platform === 'win32' ? ['-m', 'yt_dlp', ...args] : args;
+    const command = process.platform === 'win32' ? 'py' : 'python3';
+    const commandArgs = ['-m', 'yt_dlp', ...args];
     const child = spawn(command, commandArgs, { windowsHide: true });
     let output = '';
     let error = '';
@@ -52,6 +58,21 @@ function runYtDlp(args) {
     child.on('error', () => reject(new Error('yt-dlp is not installed or is not available on PATH.')));
     child.on('close', code => code === 0 ? resolve(output) : reject(new Error(error.trim() || 'The source could not be resolved.')));
   });
+}
+
+function runYtDlpToFile(args, outputPath) {
+  return new Promise((resolve, reject) => {
+    const command = process.platform === 'win32' ? 'py' : 'python3';
+    const child = spawn(command, ['-m', 'yt_dlp', '--ffmpeg-location', ffmpegPath, ...args, '-o', outputPath], { windowsHide: true });
+    let error = '';
+    child.stderr.on('data', chunk => { error += chunk; });
+    child.on('error', () => reject(new Error('The download engine is unavailable.')));
+    child.on('close', code => code === 0 ? resolve() : reject(new Error(error.trim() || 'The media could not be downloaded.')));
+  });
+}
+
+function extractorArgs(sourceUrl) {
+  return ['--dump-single-json', '--yes-playlist', '--no-warnings', '--socket-timeout', '20', '--retries', '2', '--fragment-retries', '2', '--concurrent-fragments', '4', sourceUrl];
 }
 
 function downloadUrl(sourceUrl, format, index, height) {
@@ -81,16 +102,24 @@ app.post('/api/media', async (req, res) => {
   try {
     const parsed = parseUrl(req.body.url);
     await rejectPrivateHost(parsed);
+    const cacheKey = parsed.toString();
+    const cached = metadataCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return res.json(cached.data);
+    metadataCache.delete(cacheKey);
     try {
-      const raw = await runYtDlp(['--dump-single-json', '--yes-playlist', '--no-warnings', '--socket-timeout', '20', '--retries', '2', '--fragment-retries', '2', parsed.toString()]);
+      const raw = await runYtDlp(extractorArgs(cacheKey));
       const info = JSON.parse(raw);
       const entries = (info.entries || []).filter(Boolean);
       const items = entries.length ? entries.map((entry, position) => itemFromInfo(entry, parsed.toString(), position + 1)) : [itemFromInfo(info, parsed.toString(), 1)];
-      return res.json({ title: info.title || items[0].title, thumbnail: info.thumbnail || items[0].thumbnail, source: 'extractor', count: items.length, items });
+      const data = { title: info.title || items[0].title, thumbnail: info.thumbnail || items[0].thumbnail, source: 'extractor', count: items.length, items };
+      metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+      return res.json(data);
     } catch (extractorError) {
       if (!/\.(mp4|webm|mov|m4v|jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(parsed.pathname)) throw extractorError;
       const isImage = /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(parsed.pathname);
-      return res.json({ title: path.basename(parsed.pathname) || 'Direct media', source: 'direct', count: 1, items: [{ index: 1, title: path.basename(parsed.pathname), thumbnail: isImage ? parsed.toString() : '', type: isImage ? 'image' : 'video', resolutions: [], downloads: { video: downloadUrl(parsed.toString(), 'video', 1), image: downloadUrl(parsed.toString(), 'image', 1) } }] });
+      const data = { title: path.basename(parsed.pathname) || 'Direct media', source: 'direct', count: 1, items: [{ index: 1, title: path.basename(parsed.pathname), thumbnail: isImage ? parsed.toString() : '', type: isImage ? 'image' : 'video', resolutions: [], downloads: { video: downloadUrl(parsed.toString(), 'video', 1), image: downloadUrl(parsed.toString(), 'image', 1) } }] };
+      metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+      return res.json(data);
     }
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -108,22 +137,43 @@ app.get('/api/download', async (req, res) => {
       const extension = path.extname(parsed.pathname).slice(1).toLowerCase() || 'bin';
       res.setHeader('Content-Disposition', `attachment; filename="clipgrab-media.${extension}"`);
       res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream');
-      return pipeline(Readable.fromWeb(upstream.body), res);
+      const contentLength = upstream.headers.get('content-length');
+      if (contentLength) res.setHeader('Content-Length', contentLength);
+      res.on('close', () => { if (!res.writableEnded) upstream.body.cancel().catch(() => {}); });
+      try {
+        await pipeline(Readable.fromWeb(upstream.body), res);
+      } catch (error) {
+        if (!res.destroyed) throw error;
+      }
+      return;
     }
     const format = req.query.format === 'audio' ? 'audio' : 'video';
     const itemIndex = Number.parseInt(req.query.index, 10);
     const height = Number.parseInt(req.query.height, 10);
     const playlistArgs = Number.isInteger(itemIndex) && itemIndex > 0 ? ['--playlist-items', String(itemIndex)] : ['--no-playlist'];
-    const quality = Number.isInteger(height) && height > 0 ? `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]` : 'bestvideo+bestaudio/best';
-    const args = format === 'audio' ? ['-f', 'bestaudio[ext=m4a]/bestaudio', ...playlistArgs, '--socket-timeout', '20', '--retries', '2', '--fragment-retries', '2', '-o', '-', parsed.toString()] : ['-f', quality, ...playlistArgs, '--socket-timeout', '20', '--retries', '2', '--fragment-retries', '2', '--merge-output-format', 'mp4', '-o', '-', parsed.toString()];
-    const command = process.platform === 'win32' ? 'py' : 'yt-dlp';
-    const commandArgs = process.platform === 'win32' ? ['-m', 'yt_dlp', ...args] : args;
-    const child = spawn(command, commandArgs, { windowsHide: true });
-    res.setHeader('Content-Disposition', `attachment; filename="clipgrab-${format}.mp4"`);
-    res.setHeader('Content-Type', format === 'audio' ? 'audio/mp4' : 'video/mp4');
-    child.stderr.on('data', () => {});
-    child.on('error', () => { if (!res.headersSent) res.status(502).json({ error: 'Download engine is unavailable.' }); });
-    await pipeline(child.stdout, res);
+    const quality = Number.isInteger(height) && height > 0 ? `bestvideo[height<=${height}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${height}][ext=mp4]/best` : 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best';
+    const args = format === 'audio' ? ['-f', 'bestaudio[ext=m4a]/bestaudio', ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--no-part', parsed.toString()] : ['-f', quality, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--merge-output-format', 'mp4', parsed.toString()];
+    const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'clipgrab-'));
+    const outputPath = path.join(tempDir, format === 'audio' ? 'clipgrab-audio.m4a' : 'clipgrab-video.mp4');
+    try {
+      try {
+        await runYtDlpToFile(args, outputPath);
+      } catch (error) {
+        if (format !== 'video') throw error;
+      }
+      let outputExists = false;
+      try { outputExists = (await fsp.stat(outputPath)).size > 0; } catch {}
+      if (!outputExists && format === 'video') {
+        await runYtDlpToFile(['-f', 'best', ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', parsed.toString()], outputPath);
+      }
+      const stats = await fsp.stat(outputPath);
+      res.setHeader('Content-Disposition', `attachment; filename="clipgrab-${format}.${format === 'audio' ? 'm4a' : 'mp4'}"`);
+      res.setHeader('Content-Type', format === 'audio' ? 'audio/mp4' : 'video/mp4');
+      res.setHeader('Content-Length', stats.size);
+      await pipeline(fs.createReadStream(outputPath), res);
+    } finally {
+      await fsp.rm(tempDir, { recursive: true, force: true });
+    }
   } catch (error) {
     if (!res.headersSent) res.status(400).json({ error: error.message });
   }
