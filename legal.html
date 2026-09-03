@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClipGrab</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  :root{font-family:Inter,system-ui,sans-serif;color:#171a1d;background:#f4f5f0;line-height:1.65}body{margin:0}.shell{max-width:760px;margin:auto;padding:32px 22px 64px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:64px}a{color:#516817;text-decoration:none;font-weight:700}.back{color:#171a1d;font-size:14px}h1{font:700 44px/1.1 Georgia,serif;margin:0 0 14px}h2{font-size:20px;margin:38px 0 8px}p{color:#60686b;font-size:16px;margin:0 0 14px}.meta{color:#7a8384;font-size:13px;margin-bottom:36px}@media(max-width:600px){.shell{padding:22px 18px 48px}header{margin-bottom:42px}h1{font-size:36px}}
+</style>
+</head>
+<body>
+<main class="shell">
+<header><a href="/" class="back">← Back to ClipGrab</a><a href="/">ClipGrab</a></header>
+<article id="legal-content"></article>
+</main>
+<script>
+  const pages = {
+    '/about': {title:'About ClipGrab', meta:'A simple tool for public media', body:'<p>ClipGrab helps people find and save media from public web pages and supported social platforms. Paste a link, review the available media, choose a resolution, and download what you are allowed to use.</p><h2>Built for the web</h2><p>ClipGrab works in a browser on desktop and mobile. The Android app is coming soon.</p>'},
+    '/terms': {title:'Terms of use', meta:'Please use ClipGrab responsibly', body:'<p>Use ClipGrab only for media you own or have permission to download. You are responsible for respecting copyright, privacy, platform rules, and applicable law.</p><h2>Restricted content</h2><p>Do not submit private, restricted, unlawful, or abusive content. Availability depends on the source website and may change without notice.</p><h2>Downloads</h2><p>ClipGrab does not grant rights to downloaded media and does not guarantee that every source or format will be available.</p>'},
+    '/privacy': {title:'Privacy', meta:'How ClipGrab handles URLs', body:'<p>ClipGrab receives the URL you submit so the server can request metadata and stream the selected download. URLs should not contain personal information.</p><h2>Storage</h2><p>ClipGrab is designed to process requests without keeping permanent copies of downloaded media. Operational logs and hosting-provider records may still exist according to the deployment configuration.</p>'}
+  };
+  const page = pages[location.pathname] || pages['/about'];
+  document.title = page.title + ' — ClipGrab';
+  document.getElementById('legal-content').innerHTML = `<h1>${page.title}</h1><div class="meta">${page.meta}</div>${page.body}`;
+</script>
+</body>
+</html>

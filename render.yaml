@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: clipgrab
+    runtime: node
+    buildCommand: npm install && python3 -m pip install yt-dlp
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
