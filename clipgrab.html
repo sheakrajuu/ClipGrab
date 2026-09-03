@@ -21,6 +21,7 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
+  [hidden]{display:none !important;}
   body{
     font-family:'Inter',sans-serif;
     color:var(--text);
@@ -131,6 +132,7 @@
     font-size:15px;
     color:var(--text);
     font-family:inherit;
+    min-width:0;
   }
   .fetch-bar button{
     background:var(--accent);
@@ -184,6 +186,9 @@
   .media-item-body{min-width:0;flex:1}.media-item-title{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;}
   .resolution{width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fff;font:12px Inter,sans-serif;margin-bottom:8px;}
   .web-download{max-width:1080px;margin:56px auto 0;padding:0 24px;position:relative;z-index:3;}.web-download-inner{background:#1c2421;color:#fff;border-radius:var(--radius);padding:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}.web-download h2{margin:0 0 6px;font-size:24px}.web-download p{color:#b9c1b8;margin:0;font-size:14px;max-width:570px}.web-cta{display:inline-block;background:var(--accent);color:var(--bg);border-radius:7px;padding:11px 15px;font:700 13px Inter,sans-serif;white-space:nowrap}
+  .reddit-coming-soon{display:flex;flex-direction:column;align-items:center;gap:12px;max-width:640px;margin:0 auto;padding:24px;background:#1c2421;color:#fff;border-radius:var(--radius);text-align:center;}
+  .reddit-coming-soon strong{font-family:'Space Grotesk',sans-serif;font-size:20px;}
+  .reddit-coming-soon span{color:#b9c1b8;font-size:14px;}
   .result-title{font-weight:600;font-size:15px;margin-bottom:4px;}
   .result-sub{color:var(--muted);font-size:13px;margin-bottom:10px;}
   .result-actions{display:flex;gap:8px;flex-wrap:wrap;}
@@ -372,11 +377,20 @@
   .footer-links a:hover{color:#fff;}
 
   @media (max-width:720px){
+    .hero{padding-left:16px;padding-right:16px;}
+    .tabs{justify-content:flex-start;}
+    .tab{flex:1 1 calc(50% - 6px);text-align:center;padding-left:8px;padding-right:8px;}
+    .input-tools{width:100%;padding:0;}
+    .input-tools button{flex:1;}
     .cross-grid{grid-template-columns:1fr;}
     .app-list{grid-template-columns:1fr;}
     .fetch-bar{flex-direction:column;border-radius:16px;}
     .fetch-bar button{margin-top:6px;}
     .media-grid{grid-template-columns:1fr;}
+    .media-item{flex-direction:column;}
+    .media-item img,.media-item .result-thumb{width:100%;height:auto;aspect-ratio:16 / 9;object-fit:cover;}
+    .media-item-body{width:100%;}
+    .media-download{width:100%;}
     .web-download-inner{align-items:stretch;flex-direction:column;padding:22px;}.web-cta{text-align:center;}
     .promo-inner{flex-direction:column;align-items:flex-start;}
   }
@@ -399,14 +413,18 @@
       <div class="tab" data-platform="Instagram">Instagram</div>
       <div class="tab" data-platform="Facebook">Facebook</div>
       <div class="tab" data-platform="Twitter">Twitter / X</div>
-      <div class="tab" data-platform="YouTube">YouTube</div>
-      <div class="tab" data-platform="Pinterest">Pinterest</div>
-      <div class="tab" data-platform="Reddit">Reddit</div>
+      <div class="tab" data-platform="Reddit">Reddit (Coming soon)</div>
       <div class="tab" data-platform="Web">Web</div>
     </div>
 
     <h1 id="hero-title">Download videos and images from anywhere</h1>
     <p id="hero-sub">Paste a public social media link and save the media in its original quality.</p>
+
+    <div class="reddit-coming-soon" id="reddit-coming-soon" hidden>
+      <strong>Reddit downloads are coming soon</strong>
+      <span>Try Web mode for public Reddit media. Some posts may not resolve.</span>
+      <button class="web-cta" type="button" id="reddit-web-btn">Try Web mode</button>
+    </div>
 
     <form class="fetch-bar" id="fetch-form">
       <input type="url" id="url-input" placeholder="Paste a link from TikTok, Instagram, Facebook or more" required>
@@ -415,7 +433,7 @@
         <button type="submit">Find media</button>
       </div>
     </form>
-    <div class="fetch-hint" id="fetch-hint">Supports TikTok, Instagram, Facebook, YouTube, X, Pinterest, Reddit and more.</div>
+    <div class="fetch-hint" id="fetch-hint">Supports TikTok, Instagram, Facebook, X and public websites.</div>
 
     <div class="result-card gallery" id="result-card">
       <div class="result-thumb"></div>
@@ -440,22 +458,14 @@
       <p>Grab videos and GIFs from any post.</p>
     </div>
     <div class="cross-card">
-      <div class="platform">YouTube Downloader</div>
-      <p>Save public videos in available resolutions.</p>
-    </div>
-    <div class="cross-card">
-      <div class="platform">Pinterest Downloader</div>
-      <p>Save images and videos from public Pins.</p>
-    </div>
-    <div class="cross-card">
-      <div class="platform">Reddit Downloader</div>
-      <p>Download media from public posts.</p>
+      <div class="platform">Reddit</div>
+      <p>Coming soon. Try Web mode for public post media.</p>
     </div>
   </div>
 </div>
 
 <section class="web-download" id="web-download">
-  <div class="web-download-inner"><div><h2>Download from any website</h2><p>The Web mode uses the same link box for public pages beyond TikTok, Instagram, Facebook, YouTube, X, Pinterest and Reddit.</p></div><a class="web-cta" href="#url-input">Use Web mode</a></div>
+  <div class="web-download-inner"><div><h2>Download from any website</h2><p>Use Web mode for public pages and for Pinterest or Reddit links. Some sites may block extraction.</p></div><a class="web-cta" href="#url-input">Use Web mode</a></div>
 </section>
 
 <div class="promo">
@@ -495,9 +505,7 @@
       <a href="#">Instagram Downloader<span>Photos, reels & stories</span></a>
       <a href="#">Facebook Downloader<span>Up to 2K/4K quality</span></a>
       <a href="#">Twitter / X Downloader<span>Videos and GIFs</span></a>
-      <a href="#">YouTube Downloader<span>Public videos and resolutions</span></a>
-      <a href="#">Pinterest Downloader<span>Images and videos</span></a>
-      <a href="#">Reddit Downloader<span>Public post media</span></a>
+      <a href="#">Reddit<span>Coming soon; try Web mode</span></a>
       <a href="#">Web Downloader<span>Public media from other sites</span></a>
     </div>
   </section>
@@ -583,34 +591,14 @@
         "Choose <b>MP4</b> or <b>MP3</b> to finish saving."
       ]
     },
-    YouTube: {
-      title: "Download YouTube videos",
-      sub: "Save videos from any public YouTube link.",
-      placeholder: "Paste YouTube link here",
-      steps: [
-        "Copy the video link from the address bar or the Share button.",
-        "Paste the link into the box above and hit <b>Download</b>.",
-        "Pick a quality and format, then save it to your device."
-      ]
-    },
-    Pinterest: {
-      title: "Download Pinterest images and videos",
-      sub: "Save public Pins in their original quality.",
-      placeholder: "Paste a Pinterest link here",
-      steps: [
-        "Open the Pin, tap Share, then Copy Link.",
-        "Paste the link into the box above and hit Find media.",
-        "Choose an image or video format to save it."
-      ]
-    },
     Reddit: {
-      title: "Download Reddit videos and images",
-      sub: "Save media from public Reddit posts in one tap.",
+      title: "Reddit media",
+      sub: "Use Web mode for public Reddit media. Some posts may not resolve.",
       placeholder: "Paste a Reddit post link here",
       steps: [
         "Open the post, tap Share, then Copy Link.",
         "Paste the link into the box above and hit Find media.",
-        "Choose a video or image format to save it."
+        "Switch to <b>Web</b> mode and try the public post link."
       ]
     },
     Web: {
@@ -676,9 +664,11 @@
   function renderMedia(items) {
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : 'video';
+      const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
       const resolutions = item.resolutions.length ? `<select class="resolution" data-item="${item.index}" data-download="${escapeHtml(item.downloads.video)}"><option value="">Choose resolution</option>${item.resolutions.map(height => `<option value="${height}" ${item.selectedHeight === height ? 'selected' : ''}>${height}p</option>`).join('')}</select>` : '';
       const image = item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" alt="">` : '<div class="result-thumb"></div>';
-      return `<article class="media-item">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${resolutions}<button class="dl-btn primary media-download" type="button" data-url="${escapeHtml(item.downloads[downloadType])}">Download ${downloadType}</button></div></article>`;
+      const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
+      return `<article class="media-item">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${tooLong ? '' : resolutions}<button class="dl-btn primary media-download" type="button" data-url="${escapeHtml(item.downloads[downloadType])}" ${tooLong ? 'disabled' : ''}>${tooLong ? 'Unavailable' : `Download ${downloadType}`}</button></div></article>`;
     }).join('');
   }
 
@@ -719,6 +709,14 @@
       heroTitle.textContent = data.title;
       heroSub.textContent = data.sub;
       urlInput.placeholder = data.placeholder;
+      const isReddit = selectedPlatform === 'Reddit';
+      heroTitle.hidden = isReddit;
+      heroSub.hidden = isReddit;
+      document.getElementById('reddit-coming-soon').hidden = !isReddit;
+      document.getElementById('fetch-form').hidden = isReddit;
+      document.getElementById('fetch-hint').hidden = isReddit;
+      resultCard.hidden = isReddit;
+      mediaGrid.hidden = isReddit;
       stepsWrap.innerHTML = data.steps.map((s, i) =>
         `<div class="step"><div class="step-num">${i+1}</div><p>${s}</p></div>`
       ).join('');
@@ -735,6 +733,8 @@
     try {
       const detectedPlatform = detectPlatform(value);
       const selectedName = selectedPlatform === 'Twitter' ? 'X' : selectedPlatform;
+      if (selectedPlatform === 'Reddit') throw new Error('Select Web mode to try the Reddit link.');
+      if (selectedPlatform === 'Pinterest') throw new Error('Select Web mode to download Pinterest media.');
       if (selectedPlatform !== 'Web' && detectedPlatform !== selectedName) {
         throw new Error(`This box is set to ${selectedPlatform}. Select ${detectedPlatform} or choose Web for another site.`);
       }
@@ -774,6 +774,7 @@
     restoreResults(savedState);
   }
   document.querySelector('.web-cta').addEventListener('click', () => { document.querySelector('.tab[data-platform="Web"]').click(); urlInput.focus(); });
+  document.getElementById('reddit-web-btn').addEventListener('click', () => { document.querySelector('.tab[data-platform="Web"]').click(); urlInput.focus(); });
 
   // FAQ accordion
   document.querySelectorAll('.faq-item').forEach(item => {

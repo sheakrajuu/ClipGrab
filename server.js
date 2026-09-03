@@ -19,6 +19,9 @@ const maxUrlLength = 2048;
 const allowedProtocols = new Set(['http:', 'https:']);
 const metadataCache = new Map();
 const metadataCacheTtl = 5 * 60 * 1000;
+const socialMediaHosts = new Set(['tiktok.com', 'instagram.com', 'facebook.com', 'fb.watch', 'x.com', 'twitter.com', 'youtube.com', 'youtu.be', 'pinterest.com', 'reddit.com']);
+const socialVideoLimitSeconds = 10 * 60;
+const webVideoLimitSeconds = 15 * 60;
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
@@ -38,6 +41,23 @@ function parseUrl(value) {
   const parsed = new URL(value);
   if (!allowedProtocols.has(parsed.protocol)) throw new Error('Only HTTP and HTTPS URLs are supported.');
   return parsed;
+}
+
+function isSocialMediaUrl(parsed) {
+  const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
+  return [...socialMediaHosts].some(domain => hostname === domain || hostname.endsWith(`.${domain}`));
+}
+
+function durationLimitForUrl(parsed) {
+  return isSocialMediaUrl(parsed) ? socialVideoLimitSeconds : webVideoLimitSeconds;
+}
+
+function assertDurationAllowed(info, parsed) {
+  const duration = Number(info && info.duration);
+  if (Number.isFinite(duration) && duration > durationLimitForUrl(parsed)) {
+    const limitMinutes = durationLimitForUrl(parsed) / 60;
+    throw new Error(`Videos longer than ${limitMinutes} minutes cannot be downloaded.`);
+  }
 }
 
 async function rejectPrivateHost(parsed) {
@@ -97,17 +117,19 @@ async function isDirectMedia(parsed) {
 
 function itemFromInfo(info, sourceUrl, index) {
   const heights = [...new Set((info.formats || []).map(format => format.height).filter(height => Number.isInteger(height)))].sort((a, b) => b - a);
-  const image = /image|photo/i.test(info.ext || '') || (!heights.length && info.thumbnail);
+  const image = /^(jpg|jpeg|png|gif|webp|avif)$/i.test(info.ext || '') || (!heights.length && info.thumbnail);
+  const originalImageUrl = image && /^https?:/i.test(info.url || '') ? info.url : sourceUrl;
   const downloads = {
     video: downloadUrl(sourceUrl, 'video', index),
-    image: downloadUrl(sourceUrl, 'image', index)
+    image: downloadUrl(originalImageUrl, 'image', index)
   };
-  if (image && info.thumbnail) downloads.image = downloadUrl(info.thumbnail, 'image');
   return {
     index,
     title: info.title || `Media ${index}`,
     thumbnail: info.thumbnail ? previewUrl(info.thumbnail) : '',
     type: image ? 'image' : 'video',
+    duration: Number.isFinite(Number(info.duration)) ? Number(info.duration) : null,
+    maxDuration: durationLimitForUrl(new URL(sourceUrl)),
     resolutions: heights.length ? heights : [],
     downloads
   };
@@ -145,7 +167,9 @@ app.post('/api/media', async (req, res) => {
     try {
       const raw = await runYtDlp(extractorArgs(cacheKey));
       const info = JSON.parse(raw);
+      assertDurationAllowed(info, parsed);
       const entries = flattenEntries(info);
+      entries.forEach(entry => assertDurationAllowed(entry, parsed));
       const items = entries.length > 1 ? entries.map((entry, position) => itemFromInfo(entry, parsed.toString(), position + 1)) : [itemFromInfo(entries[0] || info, parsed.toString(), 1)];
       const data = { title: info.title || items[0].title, thumbnail: info.thumbnail || items[0].thumbnail, source: 'extractor', count: items.length, items };
       metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
@@ -174,7 +198,16 @@ app.get('/api/download', async (req, res) => {
   try {
     const parsed = parseUrl(req.query.url);
     await rejectPrivateHost(parsed);
+    const format = req.query.format === 'audio' ? 'audio' : 'video';
     const directMedia = await isDirectMedia(parsed);
+    if (directMedia && format === 'video' && /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) {
+      try {
+        const metadata = JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', '--no-playlist', '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
+        assertDurationAllowed(metadata, parsed);
+      } catch (error) {
+        if (error.message.startsWith('Videos longer than')) throw error;
+      }
+    }
     if (directMedia) {
       const upstream = await fetch(parsed);
       if (!upstream.ok || !upstream.body) throw new Error('The media file could not be fetched.');
@@ -192,10 +225,14 @@ app.get('/api/download', async (req, res) => {
       }
       return;
     }
-    const format = req.query.format === 'audio' ? 'audio' : 'video';
     const itemIndex = Number.parseInt(req.query.index, 10);
     const height = Number.parseInt(req.query.height, 10);
     const playlistArgs = Number.isInteger(itemIndex) && itemIndex > 0 ? ['--playlist-items', String(itemIndex)] : ['--no-playlist'];
+    if (format === 'video') {
+      const metadata = JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', ...playlistArgs, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
+      assertDurationAllowed(metadata, parsed);
+      flattenEntries(metadata).forEach(entry => assertDurationAllowed(entry, parsed));
+    }
     const quality = Number.isInteger(height) && height > 0 ? `bestvideo[height<=${height}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${height}][ext=mp4]/best` : 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best';
     const args = format === 'audio' ? ['-f', 'bestaudio[ext=m4a]/bestaudio', ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--no-part', parsed.toString()] : ['-f', quality, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--merge-output-format', 'mp4', parsed.toString()];
     const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'clipgrab-'));
