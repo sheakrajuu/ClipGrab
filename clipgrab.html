@@ -570,6 +570,7 @@
   let galleryTouchStartX = 0;
   let galleryImages = [];
   let renderedMediaItems = [];
+  let renderedMediaStart = 0;
   let renderedMediaCount = 0;
   let batchSources = [];
   let batchSourceIndex = -1;
@@ -577,6 +578,7 @@
   let batchMode = false;
   let batchName = '';
   const mediaBatchSize = 10;
+  const webImageWindowSize = 20;
   let selectedPlatform = 'TikTok';
   const storageKey = 'clipgrab-download-state-v2';
   const sectionStatesKey = 'clipgrab-section-states-v1';
@@ -698,7 +700,10 @@
 
   function renderMedia(items, galleryMode = items.length > 0 && items.every(item => item.type === 'image')) {
     renderedMediaItems = items.map((item, index) => ({ ...item, id: item.id || `${item.downloads?.image || item.thumbnail || item.title}-${index}` }));
-    renderedMediaCount = galleryMode ? Math.min(mediaBatchSize, visibleMediaItems().length) : visibleMediaItems().length;
+    renderedMediaStart = 0;
+    renderedMediaCount = selectedPlatform === 'Web' && galleryMode
+      ? Math.min(webImageWindowSize, visibleMediaItems().length)
+      : galleryMode ? Math.min(mediaBatchSize, visibleMediaItems().length) : visibleMediaItems().length;
     renderMediaBatch(galleryMode);
   }
 
@@ -708,7 +713,10 @@
     if (!source) return;
     urlInput.value = source.url;
     renderedMediaItems = source.items || [];
-    renderedMediaCount = Math.min(mediaBatchSize, visibleMediaItems().length);
+    renderedMediaStart = 0;
+    renderedMediaCount = selectedPlatform === 'Web'
+      ? Math.min(webImageWindowSize, visibleMediaItems().length)
+      : Math.min(mediaBatchSize, visibleMediaItems().length);
     resultTitle.textContent = `${batchName || 'Batch'} ${sourceIndex + 1} of ${batchSources.length}: ${source.url}`;
     const batchNavigation = `${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}`;
     if (source.loading) {
@@ -760,7 +768,11 @@
   function renderMediaBatch(galleryMode) {
     mediaGrid.classList.toggle('gallery-mode', galleryMode);
     const visibleItems = visibleMediaItems();
-    const items = visibleItems.slice(0, renderedMediaCount);
+    const items = visibleItems.slice(renderedMediaStart, renderedMediaStart + renderedMediaCount);
+    const hasMoreItems = renderedMediaStart + renderedMediaCount < visibleItems.length;
+    const fetchAgain = selectedPlatform === 'Web' && (!batchMode || batchSourceIndex >= 0)
+      ? '<button class="load-more-media fetch-again" type="button" data-fetch-again="true">Fetch again</button>'
+      : '';
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : 'video';
       const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
@@ -776,11 +788,11 @@
       const galleryTile = galleryMode && item.type === 'image' ? ' gallery-tile' : '';
       const hideButton = galleryTile ? `<button class="hide-image" type="button" data-hide-id="${escapeHtml(item.id)}" aria-label="Hide this image">Hide</button>` : '';
       return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
-    }).join('') + (renderedMediaCount < visibleItems.length
-      ? `<button class="load-more-media" type="button">Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)</button>`
+    }).join('') + (hasMoreItems
+      ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">${selectedPlatform === 'Web' ? `Load next 10 images (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)` : `Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)`}</button>`
       : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
         ? `<div class="batch-navigation">${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}</div>`
-        : '');
+        : '') + fetchAgain;
   }
 
   function closeGallery() {
@@ -830,6 +842,9 @@
 
   async function searchMedia(value) {
     new URL(value);
+    batchMode = false;
+    batchSources = [];
+    batchSourceIndex = -1;
     fetchHint.textContent = 'Finding media...';
     resultCard.classList.add('show');
     resultTitle.textContent = 'Finding media...';
@@ -959,6 +974,12 @@
         return;
       }
       const visibleItems = visibleMediaItems();
+      if (loadMoreButton.dataset.webNextWindow === 'true') {
+        renderedMediaStart += renderedMediaCount;
+        renderedMediaCount = Math.min(mediaBatchSize, visibleItems.length - renderedMediaStart);
+        renderMediaBatch(true);
+        return;
+      }
       if (renderedMediaCount < visibleItems.length) {
         renderedMediaCount = Math.min(renderedMediaCount + mediaBatchSize, visibleItems.length);
         renderMediaBatch(true);
