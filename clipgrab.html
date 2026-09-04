@@ -170,10 +170,11 @@
     gap:14px;
     align-items:center;
   }
-  .result-card.show{display:flex;}
+  .result-card{display:none !important;}
   .result-card.gallery{display:none;}
   .result-card.gallery.show{display:block;}
-  .result-card{display:none !important;}
+  .result-card.show{animation:result-in .24s ease-out both;}
+  @keyframes result-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   .result-thumb{
     width:96px;height:96px;
     border-radius:10px;
@@ -182,9 +183,21 @@
   }
   .result-body{flex:1;min-width:0;}
   .media-grid{display:grid;grid-template-columns:1fr;gap:16px;max-width:760px;margin:20px auto 0;}
-  .media-item{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px;}
+  .media-grid.web-gallery{grid-template-columns:repeat(3,1fr);gap:8px;max-width:760px;}
+  .media-item{background:#fff;color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:12px;}
+  .web-gallery .media-item{padding:0;border:0;overflow:hidden;cursor:pointer;aspect-ratio:1;background:#101316;}
   .media-item img,.media-item video{display:block;width:100%;max-height:520px;aspect-ratio:16 / 9;object-fit:contain;border-radius:8px;background:#101316;margin-bottom:12px;}
-  .media-item-body{min-width:0;flex:1}.media-item-title{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;}
+  .web-gallery .media-item img{height:100%;aspect-ratio:1;object-fit:cover;margin:0;border-radius:0;transition:transform .2s ease;}
+  .web-gallery .media-item:hover img{transform:scale(1.04);}
+  .web-gallery .media-item-body{display:none;}
+  .gallery-viewer{position:fixed;inset:0;z-index:20;background:rgba(10,12,14,.96);display:none;align-items:center;justify-content:center;padding:24px;}
+  .gallery-viewer.open{display:flex;}
+  .gallery-track{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x;}
+  .gallery-track::-webkit-scrollbar{display:none;}
+  .gallery-slide{min-width:100%;height:100%;display:grid;place-items:center;scroll-snap-align:center;}
+  .gallery-slide img{max-width:100%;max-height:100%;object-fit:contain;}
+  .gallery-close{position:absolute;top:16px;right:18px;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#101316;font-size:25px;line-height:1;cursor:pointer;z-index:1;}
+  .media-item-body{min-width:0;flex:1}.media-item-title{font-weight:700;font-size:13px;overflow-wrap:anywhere;margin-bottom:8px;}
   .resolution{width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fff;font:12px Inter,sans-serif;margin-bottom:8px;}
   .web-download{max-width:1080px;margin:56px auto 0;padding:0 24px;position:relative;z-index:3;}.web-download-inner{background:#1c2421;color:#fff;border-radius:var(--radius);padding:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}.web-download h2{margin:0 0 6px;font-size:24px}.web-download p{color:#b9c1b8;margin:0;font-size:14px;max-width:570px}.web-cta{display:inline-block;background:var(--accent);color:var(--bg);border-radius:7px;padding:11px 15px;font:700 13px Inter,sans-serif;white-space:nowrap}
   .reddit-coming-soon{display:flex;flex-direction:column;align-items:center;gap:12px;max-width:640px;margin:0 auto;padding:24px;background:#1c2421;color:#fff;border-radius:var(--radius);text-align:center;}
@@ -202,7 +215,10 @@
     background:var(--section);
     cursor:pointer;
     font-family:inherit;
+    transition:background .15s ease,border-color .15s ease,transform .15s ease;
   }
+  .dl-btn:hover:not(:disabled){transform:translateY(-1px);}
+  .dl-btn:disabled{cursor:wait;opacity:.65;}
   .dl-btn.primary{
     background:var(--accent);
     border-color:var(--accent);
@@ -390,6 +406,7 @@
     .fetch-bar{flex-direction:column;border-radius:16px;}
     .fetch-bar button{margin-top:6px;}
     .media-grid{grid-template-columns:1fr;}
+    .media-grid.web-gallery{grid-template-columns:repeat(3,1fr);}
     .media-item img,.media-item video{max-height:420px;}
     .media-item-body{width:100%;}
     .media-download{width:100%;}
@@ -442,6 +459,10 @@
       <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div></div>
     </div>
     <div class="media-grid" id="media-grid"></div>
+    <div class="gallery-viewer" id="gallery-viewer" aria-hidden="true">
+      <button class="gallery-close" id="gallery-close" type="button" aria-label="Close gallery">&times;</button>
+      <div class="gallery-track" id="gallery-track"></div>
+    </div>
   </div>
 </section>
 
@@ -625,6 +646,10 @@
   const resultTitle = document.getElementById('result-title');
   const resultSub = document.getElementById('result-sub');
   const mediaGrid = document.getElementById('media-grid');
+  const galleryViewer = document.getElementById('gallery-viewer');
+  const galleryTrack = document.getElementById('gallery-track');
+  let galleryIndex = 0;
+  let galleryTouchStartX = 0;
   let selectedPlatform = 'TikTok';
   const storageKey = 'clipgrab-download-state-v2';
 
@@ -675,26 +700,13 @@
     resultSub.append(' ', link);
   }
 
-  async function triggerDownload(target) {
+  function triggerDownload(target) {
     if (!target) return;
-    const response = await fetch(target);
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || 'The media could not be downloaded.');
-    }
-    const blobUrl = URL.createObjectURL(await response.blob());
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    const disposition = response.headers.get('content-disposition') || '';
-    const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-    link.download = filename || 'clipgrab-media';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    window.location.assign(target);
   }
 
-  function renderMedia(items) {
+  function renderMedia(items, galleryMode = false) {
+    mediaGrid.classList.toggle('web-gallery', galleryMode);
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : 'video';
       const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
@@ -704,10 +716,10 @@
         : '';
       const resolutions = item.resolutions.length ? `<select class="resolution" data-item="${item.index}" data-download="${escapeHtml(item.downloads.video)}"><option value="">Choose resolution</option>${item.resolutions.map(height => `<option value="${height}" ${item.selectedHeight === height ? 'selected' : ''}>${height}p</option>`).join('')}</select>` : '';
       const image = item.type === 'image'
-        ? (item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" alt="">` : '<div class="result-thumb"></div>')
+        ? (item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" data-gallery-src="${escapeHtml(item.thumbnail)}" alt="">` : '<div class="result-thumb"></div>')
         : (tooLong ? '<div class="result-thumb"></div>' : `<video controls preload="metadata"${item.thumbnail ? ` poster="${escapeHtml(item.thumbnail)}"` : ''} src="${escapeHtml(item.downloads.video)}&preview=1"></video>`);
       const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
-      return `<article class="media-item">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
+      return `<article class="media-item">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
     }).join('');
   }
 
@@ -717,7 +729,7 @@
     resultCard.classList.add('show');
     resultTitle.textContent = state.title || 'Media ready';
     resultSub.textContent = `${state.items.length} item${state.items.length === 1 ? '' : 's'} found. Choose a resolution where available.`;
-    renderMedia(state.items);
+    renderMedia(state.items, state.source === 'web-images');
     Object.entries(state.resolutions || {}).forEach(([index, height]) => {
       const selector = mediaGrid.querySelector(`.resolution[data-item="${index}"]`);
       if (selector) selector.value = height;
@@ -736,9 +748,9 @@
     if (!response.ok) throw new Error(data.error || 'The source could not be resolved.');
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
     resultSub.textContent = `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found. Choose a resolution where available.`;
-    renderMedia(data.items || []);
+    renderMedia(data.items || [], data.source === 'web-images');
     fetchHint.textContent = 'Enjoy your media.';
-    saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, items: data.items || [] });
+    saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, source: data.source, items: data.items || [] });
   }
 
   tabs.forEach(tab => {
@@ -796,15 +808,25 @@
     state.resolutions[e.target.dataset.item] = e.target.value;
     saveState(state);
   });
-  resultCard.addEventListener('click', e => {
+  mediaGrid.addEventListener('click', e => {
+    const galleryImage = e.target.closest('.web-gallery img[data-gallery-src]');
+    if (galleryImage) {
+      const images = [...mediaGrid.querySelectorAll('.web-gallery img[data-gallery-src]')];
+      galleryTrack.innerHTML = images.map(image => `<div class="gallery-slide"><img src="${escapeHtml(image.dataset.gallerySrc)}" alt=""></div>`).join('');
+      galleryIndex = images.indexOf(galleryImage);
+      galleryViewer.classList.add('open');
+      galleryViewer.setAttribute('aria-hidden', 'false');
+      galleryTrack.scrollTo({ left: galleryTrack.clientWidth * galleryIndex });
+      return;
+    }
     const button = e.target.closest('.media-download');
     if (!button) return;
     const selector = button.parentElement.querySelector('.resolution');
     const target = selector && selector.value ? selector.dataset.download + '&height=' + encodeURIComponent(selector.value) : button.dataset.url;
     button.disabled = true;
-    triggerDownload(target).catch(error => {
-      showErrorWithFallback(error.message || 'The media could not be downloaded.');
-    }).finally(() => { button.disabled = false; });
+    button.textContent = 'Starting...';
+    triggerDownload(target);
+    setTimeout(() => { button.disabled = false; button.textContent = 'Download ' + (button.dataset.type || 'video'); }, 1000);
   });
 
   document.getElementById('paste-btn').addEventListener('click', async () => {
@@ -820,6 +842,22 @@
     window.open(target, '_blank', 'noopener');
   });
   urlInput.addEventListener('input', () => saveState({ platform: selectedPlatform, url: urlInput.value }));
+  document.getElementById('gallery-close').addEventListener('click', () => {
+    galleryViewer.classList.remove('open');
+    galleryViewer.setAttribute('aria-hidden', 'true');
+  });
+  galleryViewer.addEventListener('click', event => {
+    if (event.target === galleryViewer) document.getElementById('gallery-close').click();
+  });
+  galleryTrack.addEventListener('touchstart', event => {
+    galleryTouchStartX = event.changedTouches[0].clientX;
+  }, { passive: true });
+  galleryTrack.addEventListener('touchend', event => {
+    const distance = event.changedTouches[0].clientX - galleryTouchStartX;
+    if (Math.abs(distance) < 40) return;
+    galleryIndex = Math.max(0, Math.min(galleryTrack.children.length - 1, galleryIndex + (distance < 0 ? 1 : -1)));
+    galleryTrack.scrollTo({ left: galleryTrack.clientWidth * galleryIndex, behavior: 'smooth' });
+  }, { passive: true });
 
   const savedState = readState();
   if (savedState) {

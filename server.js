@@ -219,6 +219,18 @@ async function extractPageVideos(parsed) {
   if (!response.ok) return [];
   const $ = cheerio.load(await response.text());
   const candidates = [];
+  $('script[type="application/ld+json"]').each((_, element) => {
+    try {
+      const data = JSON.parse($(element).text());
+      const values = Array.isArray(data) ? data : [data];
+      values.forEach(value => {
+        for (const key of ['contentUrl', 'embedUrl', 'video']) {
+          const candidate = value && typeof value[key] === 'string' ? value[key] : value && value[key] && value[key].contentUrl;
+          if (candidate) candidates.push(candidate);
+        }
+      });
+    } catch {}
+  });
   $('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player:stream"]').each((_, element) => candidates.push($(element).attr('content')));
   $('video, video source, source').each((_, element) => {
     for (const attribute of ['src', 'data-src', 'data-video', 'data-url']) candidates.push($(element).attr(attribute));
@@ -241,6 +253,15 @@ app.post('/api/media', async (req, res) => {
       metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     }
+    if (!isSocialMediaUrl(parsed)) {
+      const imageUrls = await extractPageImages(parsed).catch(() => []);
+      if (imageUrls.length) {
+        logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
+        const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl), type: 'image', resolutions: [], downloads: { image: downloadUrl(imageUrl, 'image') } })) };
+        metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+        return res.json(data);
+      }
+    }
     try {
       const raw = await runYtDlp(extractorArgs(cacheKey));
       const info = JSON.parse(raw);
@@ -249,7 +270,7 @@ app.post('/api/media', async (req, res) => {
       entries.forEach(entry => assertDurationAllowed(entry, parsed));
       const items = entries.length > 1 ? entries.map((entry, position) => itemFromInfo(entry, parsed.toString(), position + 1)) : [itemFromInfo(entries[0] || info, parsed.toString(), 1)];
       const data = { title: info.title || items[0].title, thumbnail: info.thumbnail || items[0].thumbnail, source: 'extractor', count: items.length, items };
-      metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+      metadataCache.set(cacheKey, { data, info, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     } catch (extractorError) {
       if (!await isDirectMedia(parsed)) {
@@ -320,7 +341,10 @@ app.get('/api/download', async (req, res) => {
     const height = Number.parseInt(req.query.height, 10);
     const playlistArgs = Number.isInteger(itemIndex) && itemIndex > 0 ? ['--playlist-items', String(itemIndex)] : ['--no-playlist'];
     if (format === 'video') {
-      const metadata = JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', ...playlistArgs, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
+      const cached = metadataCache.get(parsed.toString());
+      const metadata = cached && cached.expiresAt > Date.now() && cached.info
+        ? cached.info
+        : JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', ...playlistArgs, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
       assertDurationAllowed(metadata, parsed);
       flattenEntries(metadata).forEach(entry => assertDurationAllowed(entry, parsed));
     }
