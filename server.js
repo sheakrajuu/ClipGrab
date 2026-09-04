@@ -19,11 +19,15 @@ const maxUrlLength = 2048;
 const allowedProtocols = new Set(['http:', 'https:']);
 const metadataCache = new Map();
 const metadataCacheTtl = 5 * 60 * 1000;
+const previewCache = new Map();
+const previewCacheTtl = 5 * 60 * 1000;
+const maxCachedPreviewBytes = 8 * 1024 * 1024;
 const socialMediaHosts = new Set(['tiktok.com', 'instagram.com', 'facebook.com', 'fb.watch', 'x.com', 'twitter.com', 'youtube.com', 'youtu.be', 'pinterest.com', 'reddit.com']);
 const socialVideoLimitSeconds = 10 * 60;
 const webVideoLimitSeconds = 15 * 60;
 const upstreamTimeoutMs = 120000;
 const metadataTimeoutMs = 30000;
+const directTypeTimeoutMs = 8000;
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
@@ -133,7 +137,7 @@ async function directMediaType(parsed) {
   if (/\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) return 'video';
   if (/\.(jpg|jpeg|png|gif|webp|avif)(\?.*)?$/i.test(parsed.pathname)) return 'image';
   try {
-    const response = await fetch(parsed, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+    const response = await fetch(parsed, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(directTypeTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
     const contentType = response.headers.get('content-type') || '';
     if (/^image\//i.test(contentType)) return 'image';
     if (/^video\//i.test(contentType)) return 'video';
@@ -386,12 +390,28 @@ app.get('/api/preview', async (req, res) => {
   try {
     const parsed = parseUrl(req.query.url);
     await rejectPrivateHost(parsed);
+    const cacheKey = parsed.toString();
+    const cached = previewCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      res.setHeader('Content-Type', cached.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.send(cached.body);
+    }
+    previewCache.delete(cacheKey);
     const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
     if (!upstream.ok || !upstream.body) throw new Error('Preview unavailable.');
     const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     if (!/^image\//.test(contentType)) throw new Error('Preview is not an image.');
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=300');
+    const contentLength = Number(upstream.headers.get('content-length'));
+    if (Number.isFinite(contentLength) && contentLength <= maxCachedPreviewBytes || !Number.isFinite(contentLength)) {
+      const body = Buffer.from(await upstream.arrayBuffer());
+      if (body.length <= maxCachedPreviewBytes) {
+        previewCache.set(cacheKey, { body, contentType, expiresAt: Date.now() + previewCacheTtl });
+      }
+      return res.send(body);
+    }
     await pipeline(Readable.fromWeb(upstream.body), res);
   } catch (error) {
     if (!res.headersSent) res.status(404).type('text/plain').send(error.message);
