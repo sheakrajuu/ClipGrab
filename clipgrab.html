@@ -557,6 +557,7 @@
   const resultTitle = document.getElementById('result-title');
   const resultSub = document.getElementById('result-sub');
   const mediaGrid = document.getElementById('media-grid');
+  const fetchSubmitButton = document.querySelector('#fetch-form button[type="submit"]');
   const savedUrlSection = document.getElementById('saved-url-section');
   const savedUrlName = document.getElementById('saved-url-name');
   const savedUrlList = document.getElementById('saved-url-list');
@@ -580,10 +581,13 @@
   const mediaBatchSize = 10;
   const webImageWindowSize = 20;
   let selectedPlatform = 'TikTok';
+  let requestCooldownUntil = 0;
+  let requestCooldownTimer = null;
   const storageKey = 'clipgrab-download-state-v2';
   const sectionStatesKey = 'clipgrab-section-states-v1';
   const savedUrlsKey = 'clipgrab-saved-urls-v1';
   const hiddenImagesKey = 'clipgrab-hidden-images-v1';
+  const webResultsCacheKey = 'clipgrab-web-results-cache-v1';
 
   function saveState(state) {
     try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch {}
@@ -672,6 +676,56 @@
     return String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
   }
 
+  function readWebResultsCache() {
+    try { return JSON.parse(localStorage.getItem(webResultsCacheKey) || '{}'); } catch { return {}; }
+  }
+
+  function getCachedWebResult(url) {
+    const entry = readWebResultsCache()[url];
+    return entry && entry.data && Date.now() - entry.savedAt < 60 * 60 * 1000 ? entry.data : null;
+  }
+
+  function cacheWebResult(url, data) {
+    try {
+      const cache = readWebResultsCache();
+      cache[url] = { savedAt: Date.now(), data };
+      const recentEntries = Object.entries(cache).sort(([, first], [, second]) => second.savedAt - first.savedAt).slice(0, 10);
+      localStorage.setItem(webResultsCacheKey, JSON.stringify(Object.fromEntries(recentEntries)));
+    } catch {}
+  }
+
+  function startRequestCooldown(seconds) {
+    requestCooldownUntil = Date.now() + Math.max(1, Number(seconds) || 60) * 1000;
+    fetchSubmitButton.disabled = true;
+    clearInterval(requestCooldownTimer);
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((requestCooldownUntil - Date.now()) / 1000));
+      fetchHint.textContent = remaining ? `Too many requests. Try again in ${remaining} seconds.` : 'You can fetch again now.';
+      if (!remaining) {
+        clearInterval(requestCooldownTimer);
+        requestCooldownTimer = null;
+        fetchSubmitButton.disabled = false;
+      }
+    };
+    update();
+    requestCooldownTimer = setInterval(update, 1000);
+  }
+
+  function assertRequestAllowed() {
+    const remaining = Math.max(0, Math.ceil((requestCooldownUntil - Date.now()) / 1000));
+    if (remaining) throw new Error(`Please wait ${remaining} seconds before fetching again.`);
+  }
+
+  async function fetchMediaRequest(url) {
+    assertRequestAllowed();
+    const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ url }) });
+    if (response.status === 429) {
+      const retryAfter = Number(response.headers.get('Retry-After')) || 60;
+      startRequestCooldown(retryAfter);
+    }
+    return response;
+  }
+
   function snapVidUrl(platform) {
     return ({TikTok:'https://en.snapvid.app/', Instagram:'https://snapvid.net/en/instagram-downloader', Facebook:'https://snapvid.net/en/facebook-downloader', Twitter:'https://snapvid.net/en2/twitter-downloader', X:'https://snapvid.net/en2/twitter-downloader', Web:'https://snapvid.net/en/'})[platform] || 'https://snapvid.net/en/';
   }
@@ -745,11 +799,15 @@
     source.error = '';
     renderBatchSource(sourceIndex);
     try {
-      const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ url: source.url }) });
-      const responseText = await response.text();
-      let data;
-      try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
-      if (!response.ok || !Array.isArray(data.items)) throw new Error(data.error || 'Could not resolve this URL.');
+      let data = selectedPlatform === 'Web' && !force ? getCachedWebResult(source.url) : null;
+      if (!data) {
+        const response = await fetchMediaRequest(source.url);
+        const responseText = await response.text();
+        try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
+        if (!response.ok || !Array.isArray(data.items)) throw new Error(data.error || 'Could not resolve this URL.');
+        if (selectedPlatform === 'Web') cacheWebResult(source.url, data);
+      }
+      if (!Array.isArray(data.items)) throw new Error(data.error || 'Could not resolve this URL.');
       if (requestToken !== batchRequestToken) return;
       source.items = data.items.map(item => ({ ...item, title: `${detectPlatform(source.url)}: ${item.title}`, id: `${source.url}#${item.index}` }));
       source.error = '';
@@ -840,7 +898,7 @@
     });
   }
 
-  async function searchMedia(value) {
+  async function searchMedia(value, force = false) {
     new URL(value);
     batchMode = false;
     batchSources = [];
@@ -850,11 +908,14 @@
     resultTitle.textContent = 'Finding media...';
     resultSub.textContent = 'Checking the source and available formats.';
     mediaGrid.innerHTML = '';
-    const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ url: value }) });
-    const responseText = await response.text();
-    let data;
-    try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
-    if (!response.ok) throw new Error(data.error || 'The source could not be resolved.');
+    let data = selectedPlatform === 'Web' && !force ? getCachedWebResult(value) : null;
+    if (!data) {
+      const response = await fetchMediaRequest(value);
+      const responseText = await response.text();
+      try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
+      if (!response.ok) throw new Error(data.error || 'The source could not be resolved.');
+      if (selectedPlatform === 'Web') cacheWebResult(value, data);
+    }
     if (!data || !Array.isArray(data.items)) throw new Error(data.error || 'The source returned an invalid response.');
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
     resultSub.textContent = `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found. Choose a resolution where available.`;
@@ -969,8 +1030,14 @@
         fetchBatchSource(batchSourceIndex + 1);
         return;
       }
-      if (loadMoreButton.dataset.fetchAgain === 'true' && batchSourceIndex >= 0) {
-        fetchBatchSource(batchSourceIndex, true);
+      if (loadMoreButton.dataset.fetchAgain === 'true') {
+        if (batchMode && batchSourceIndex >= 0) {
+          fetchBatchSource(batchSourceIndex, true);
+        } else if (selectedPlatform === 'Web' && urlInput.value.trim()) {
+          searchMedia(urlInput.value.trim(), true).catch(error => {
+            resultSub.textContent = error.message || 'Could not fetch this URL again.';
+          });
+        }
         return;
       }
       const visibleItems = visibleMediaItems();

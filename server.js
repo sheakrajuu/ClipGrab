@@ -44,7 +44,32 @@ function renderClipgrabPage() {
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '10kb' }));
-app.use(rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }));
+const requestRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: req => req.path === '/api/preview',
+  handler: (req, res) => {
+    const resetAt = Number(req.rateLimit?.reset) || Date.now() + 60 * 1000;
+    const retryAfter = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+    res.setHeader('Retry-After', String(retryAfter));
+    res.status(429).json({ error: `Too many requests. Try again in ${retryAfter} seconds.`, retryAfter });
+  }
+});
+const previewRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const resetAt = Number(req.rateLimit?.reset) || Date.now() + 60 * 1000;
+    const retryAfter = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+    res.setHeader('Retry-After', String(retryAfter));
+    res.status(429).type('text/plain').send(`Too many image previews. Try again in ${retryAfter} seconds.`);
+  }
+});
+app.use(requestRateLimit);
 app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -406,7 +431,7 @@ app.get('/api/download', async (req, res) => {
   }
 });
 
-app.get('/api/preview', async (req, res) => {
+app.get('/api/preview', previewRateLimit, async (req, res) => {
   try {
     const parsed = parseUrl(req.query.url);
     const referer = req.query.referer ? parseUrl(req.query.referer) : null;
@@ -416,7 +441,7 @@ app.get('/api/preview', async (req, res) => {
     const cached = previewCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       res.setHeader('Content-Type', cached.contentType);
-      res.setHeader('Cache-Control', 'public, max-age=300');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
       return res.send(cached.body);
     }
     previewCache.delete(cacheKey);
@@ -433,7 +458,7 @@ app.get('/api/preview', async (req, res) => {
     if (!upstream.ok || !upstream.body) throw new Error('Preview unavailable.');
     if (!/^image\//.test(contentType)) throw new Error('Preview is not an image.');
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
     const contentLength = Number(upstream.headers.get('content-length'));
     if (Number.isFinite(contentLength) && contentLength <= maxCachedPreviewBytes || !Number.isFinite(contentLength)) {
       const body = Buffer.from(await upstream.arrayBuffer());
