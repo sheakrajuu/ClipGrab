@@ -828,8 +828,12 @@
     const visibleItems = visibleMediaItems();
     const items = visibleItems.slice(renderedMediaStart, renderedMediaStart + renderedMediaCount);
     const hasMoreItems = renderedMediaStart + renderedMediaCount < visibleItems.length;
+    const hasPreviousItems = selectedPlatform === 'Web' && renderedMediaStart > 0;
     const fetchAgain = selectedPlatform === 'Web' && (!batchMode || batchSourceIndex >= 0)
       ? '<button class="load-more-media fetch-again" type="button" data-fetch-again="true">Fetch again</button>'
+      : '';
+    const previousWindow = hasPreviousItems
+      ? '<button class="load-more-media" type="button" data-web-previous-window="true">Show previous images</button>'
       : '';
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : 'video';
@@ -846,7 +850,7 @@
       const galleryTile = galleryMode && item.type === 'image' ? ' gallery-tile' : '';
       const hideButton = galleryTile ? `<button class="hide-image" type="button" data-hide-id="${escapeHtml(item.id)}" aria-label="Hide this image">Hide</button>` : '';
       return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
-    }).join('') + (hasMoreItems
+    }).join('') + previousWindow + (hasMoreItems
       ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">${selectedPlatform === 'Web' ? `Load next 10 images (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)` : `Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)`}</button>`
       : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
         ? `<div class="batch-navigation">${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}</div>`
@@ -1041,6 +1045,14 @@
         return;
       }
       const visibleItems = visibleMediaItems();
+      if (loadMoreButton.dataset.webPreviousWindow === 'true') {
+        renderedMediaStart = Math.max(0, renderedMediaStart - mediaBatchSize);
+        renderedMediaCount = renderedMediaStart === 0
+          ? Math.min(webImageWindowSize, visibleItems.length)
+          : Math.min(mediaBatchSize, visibleItems.length - renderedMediaStart);
+        renderMediaBatch(true);
+        return;
+      }
       if (loadMoreButton.dataset.webNextWindow === 'true') {
         renderedMediaStart += renderedMediaCount;
         renderedMediaCount = Math.min(mediaBatchSize, visibleItems.length - renderedMediaStart);
