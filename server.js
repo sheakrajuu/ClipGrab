@@ -129,8 +129,10 @@ function downloadUrl(sourceUrl, format, index, height) {
   return '/api/download?' + params.toString();
 }
 
-function previewUrl(sourceUrl) {
-  return '/api/preview?url=' + encodeURIComponent(sourceUrl);
+function previewUrl(sourceUrl, refererUrl) {
+  const params = new URLSearchParams({ url: sourceUrl });
+  if (refererUrl) params.set('referer', refererUrl);
+  return '/api/preview?' + params.toString();
 }
 
 async function directMediaType(parsed) {
@@ -160,7 +162,7 @@ function itemFromInfo(info, sourceUrl, index) {
   return {
     index,
     title: info.title || `Media ${index}`,
-    thumbnail: info.thumbnail ? previewUrl(info.thumbnail) : '',
+    thumbnail: info.thumbnail ? previewUrl(info.thumbnail, sourceUrl) : '',
     type: image ? 'image' : 'video',
     duration: Number.isFinite(Number(info.duration)) ? Number(info.duration) : null,
     maxDuration: durationLimitForUrl(new URL(sourceUrl)),
@@ -213,7 +215,7 @@ async function extractPageImages(parsed) {
   $('meta[property="og:image"], meta[property="og:image:url"], meta[name="twitter:image"], meta[name="twitter:image:src"]').each((_, element) => candidates.push($(element).attr('content')));
   $('picture source, img').each((_, element) => {
     addSourceSet($(element).attr('srcset') || $(element).attr('data-srcset'));
-    for (const attribute of ['src', 'data-src', 'data-lazy-src', 'data-original', 'data-original-src', 'data-url', 'data-image']) candidates.push($(element).attr(attribute));
+    for (const attribute of ['data-src', 'data-lazy-src', 'data-original', 'data-original-src', 'data-url', 'data-image', 'src']) candidates.push($(element).attr(attribute));
   });
   return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))].slice(0, 30);
 }
@@ -261,7 +263,7 @@ app.post('/api/media', async (req, res) => {
       const imageUrls = await extractPageImages(parsed).catch(() => []);
       if (imageUrls.length) {
         logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
-        const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl), type: 'image', resolutions: [], downloads: { image: downloadUrl(imageUrl, 'image') } })) };
+        const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl, parsed.toString()), type: 'image', resolutions: [], downloads: { image: downloadUrl(imageUrl, 'image') } })) };
         metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
         return res.json(data);
       }
@@ -281,7 +283,7 @@ app.post('/api/media', async (req, res) => {
         const imageUrls = await extractPageImages(parsed).catch(() => []);
         if (imageUrls.length) {
           logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
-          const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl), type: 'image', resolutions: [], downloads: { image: isInstagramResizedPreview(imageUrl) ? '' : downloadUrl(imageUrl, 'image') } })) };
+          const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl, parsed.toString()), type: 'image', resolutions: [], downloads: { image: isInstagramResizedPreview(imageUrl) ? '' : downloadUrl(imageUrl, 'image') } })) };
           metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
           return res.json(data);
         }
@@ -389,7 +391,9 @@ app.get('/api/download', async (req, res) => {
 app.get('/api/preview', async (req, res) => {
   try {
     const parsed = parseUrl(req.query.url);
+    const referer = req.query.referer ? parseUrl(req.query.referer) : null;
     await rejectPrivateHost(parsed);
+    if (referer) await rejectPrivateHost(referer);
     const cacheKey = parsed.toString();
     const cached = previewCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
@@ -398,7 +402,9 @@ app.get('/api/preview', async (req, res) => {
       return res.send(cached.body);
     }
     previewCache.delete(cacheKey);
-    const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+    const headers = { 'User-Agent': 'ClipGrab/1.0' };
+    if (referer) headers.Referer = referer.toString();
+    const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers });
     if (!upstream.ok || !upstream.body) throw new Error('Preview unavailable.');
     const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     if (!/^image\//.test(contentType)) throw new Error('Preview is not an image.');
