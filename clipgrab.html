@@ -208,7 +208,6 @@
     gap:14px;
     align-items:center;
   }
-  .result-card{display:none !important;}
   .result-card.gallery{display:none;}
   .result-card.gallery.show{display:block;}
   .result-card.show{animation:result-in .24s ease-out both;}
@@ -233,6 +232,9 @@
   .gallery-tile:hover .hide-image,.gallery-tile:focus-within .hide-image{opacity:1;pointer-events:auto;}
   .load-more-media{grid-column:1 / -1;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:11px;font:600 13px Inter,sans-serif;cursor:pointer;}
   .load-more-media:hover{background:#EEF0E8;}
+  .batch-navigation{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap;}
+  .batch-navigation .load-more-media{flex:1;min-width:150px;}
+  .fetch-again{grid-column:1 / -1;}
   #unhide-images-btn{display:block;margin:10px auto 0;}
   .image-fallback{height:100%;min-height:120px;display:grid;place-items:center;background:#27302C;color:#AEB2C4;font-size:12px;}
   .gallery-viewer{position:fixed;inset:0;z-index:20;background:rgba(10,12,14,.96);display:none;align-items:center;justify-content:center;padding:24px;}
@@ -245,6 +247,7 @@
   .gallery-close{position:absolute;top:16px;right:18px;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#101316;font-size:25px;line-height:1;cursor:pointer;z-index:1;}
   .media-item-body{min-width:0;flex:1}.media-item-title{font-weight:700;font-size:13px;overflow-wrap:anywhere;margin-bottom:8px;}
   .resolution{width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fff;font:12px Inter,sans-serif;margin-bottom:8px;}
+  @media (max-width:600px){.batch-form{grid-template-columns:1fr;}.batch-form .batch-btn,.batch-form .save-url-btn{width:100%;}.batch-header{align-items:flex-start;flex-direction:column;gap:3px;}}
   .web-download{max-width:1080px;margin:56px auto 0;padding:0 24px;position:relative;z-index:3;}.web-download-inner{background:#1c2421;color:#fff;border-radius:var(--radius);padding:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}.web-download h2{margin:0 0 6px;font-size:24px}.web-download p{color:#b9c1b8;margin:0;font-size:14px;max-width:570px}.web-cta{display:inline-block;background:var(--accent);color:var(--bg);border-radius:7px;padding:11px 15px;font:700 13px Inter,sans-serif;white-space:nowrap}
   .reddit-coming-soon{display:flex;flex-direction:column;align-items:center;gap:12px;max-width:640px;margin:0 auto;padding:24px;background:#1c2421;color:#fff;border-radius:var(--radius);text-align:center;}
   .reddit-coming-soon strong{font-family:'Space Grotesk',sans-serif;font-size:20px;}
@@ -272,6 +275,8 @@
   }
   .external-download{display:inline-block;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--section);color:var(--text);font-family:inherit;text-decoration:none;cursor:pointer;}
   .external-download:hover{border-color:var(--accent-dark);background:#EEF0E8;}
+  .external-download.snapvid-link{background:var(--accent);border-color:var(--accent);border-radius:7px;color:var(--bg);font-weight:700;padding:11px 15px;}
+  .external-download.snapvid-link:hover{background:var(--accent-dark);border-color:var(--accent-dark);}
 
   /* ---------- Cross links (Instagram/FB/Twitter cards) ---------- */
   .cross-links{
@@ -470,184 +475,13 @@
 </style>
 </head>
 <body>
-
-<header>
-  <div class="header-inner">
-    <div class="logo">ClipGrab</div>
-    <span class="lang">English</span>
-  </div>
-</header>
-
-<section class="hero">
-  <div class="hero-inner">
-    <div class="eyebrow">One simple link. Every platform.</div>
-    <div class="tabs" id="tabs">
-      <div class="tab active" data-platform="TikTok">TikTok</div>
-      <div class="tab" data-platform="Instagram">Instagram</div>
-      <div class="tab" data-platform="Facebook">Facebook</div>
-      <div class="tab" data-platform="Twitter">Twitter / X</div>
-      <div class="tab" data-platform="Reddit">Reddit (Coming soon)</div>
-      <div class="tab" data-platform="Web">Web</div>
-    </div>
-
-    <h1 id="hero-title">Download videos and images from anywhere</h1>
-    <p id="hero-sub">Paste a public social media link and save the media in its original quality.</p>
-
-    <div class="reddit-coming-soon" id="reddit-coming-soon" hidden>
-      <strong>Reddit downloads are coming soon</strong>
-      <span>Try Web mode for public Reddit media. Some posts may not resolve.</span>
-      <button class="web-cta" type="button" id="reddit-web-btn">Try Web mode</button>
-    </div>
-
-    <form class="fetch-bar" id="fetch-form">
-      <input type="url" id="url-input" placeholder="Paste a link from TikTok, Instagram, Facebook or more" required>
-      <div class="input-tools">
-        <button class="paste-btn" type="button" id="paste-btn">Paste</button>
-        <button type="submit">Find media</button>
-      </div>
-    </form>
-    <div class="fetch-hint" id="fetch-hint">Supports TikTok, Instagram, Facebook, X and public websites.</div>
-    <button class="web-tools-btn" id="web-tools-btn" type="button">Open Web tools</button>
-
-    <div class="result-card gallery" id="result-card">
-      <div class="result-thumb"></div>
-      <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div></div>
-    </div>
-    <div class="media-grid" id="media-grid"></div>
-    <div class="gallery-viewer" id="gallery-viewer" aria-hidden="true">
-      <button class="gallery-close" id="gallery-close" type="button" aria-label="Close gallery">&times;</button>
-      <div class="gallery-track" id="gallery-track"></div>
-    </div>
-  </div>
-</section>
-
-<div class="web-tools-modal" id="web-tools-modal" role="dialog" aria-modal="true" aria-labelledby="web-tools-title" aria-hidden="true">
-  <div class="web-tools-dialog">
-    <div class="web-tools-dialog-header"><h2 id="web-tools-title">Web tools</h2><button class="web-tools-close" id="web-tools-close" type="button" aria-label="Close Web tools">&times;</button></div>
-    <section class="batch-section" aria-label="Batch URL search">
-      <div class="batch-header">Batch search <span>One URL per line or separated by commas</span></div>
-      <div class="batch-name-tools"><input class="batch-name" id="batch-name" type="text" maxlength="60" placeholder="Name this batch" aria-label="Batch name"><button class="batch-name-save" id="rename-batch-btn" type="button">Rename batch</button></div>
-      <form class="batch-form" id="batch-form">
-        <textarea id="batch-input" placeholder="https://example.com/page-one&#10;https://example.com/page-two" aria-label="Batch URLs"></textarea>
-        <button class="batch-btn" type="submit">Find batch</button>
-        <button class="save-url-btn" id="save-batch-btn" type="button">Save batch</button>
-      </form>
-      <div class="batch-status" id="batch-status" aria-live="polite"></div>
-    </section>
-    <section class="saved-url-section" id="saved-url-section" aria-label="Saved URLs">
-      <div class="saved-url-header"><span>Saved URLs</span></div>
-      <div class="saved-url-form"><input type="text" id="saved-url-name" placeholder="Name this URL" maxlength="60"><button class="save-url-btn" id="save-url-btn" type="button">Save current URL</button></div>
-      <div class="saved-url-list" id="saved-url-list"></div>
-    </section>
-  </div>
-</div>
-
-<div class="cross-links">
-  <div class="cross-grid">
-    <div class="cross-card">
-      <div class="platform">Instagram Downloader</div>
-      <p>Save photos, videos, reels and stories.</p>
-    </div>
-    <div class="cross-card">
-      <div class="platform">Facebook Downloader</div>
-      <p>Download Facebook videos up to 4K.</p>
-    </div>
-    <div class="cross-card">
-      <div class="platform">Twitter Downloader</div>
-      <p>Grab videos and GIFs from any post.</p>
-    </div>
-    <div class="cross-card">
-      <div class="platform">Reddit</div>
-      <p>Coming soon. Try Web mode for public post media.</p>
-    </div>
-  </div>
-</div>
-
-<section class="web-download" id="web-download">
-  <div class="web-download-inner"><div><h2>Download from any website</h2><p>Use Web mode for public pages and for Pinterest or Reddit links. Some sites may block extraction.</p></div><a class="web-cta" href="#url-input">Use Web mode</a></div>
-</section>
-
-<div class="promo">
-  <div class="promo-inner">
-    <div>
-      <h3>Use ClipGrab on mobile</h3>
-    <button class="save-url-btn" id="unhide-images-btn" type="button" hidden>Unhide images</button>
-      <p>ClipGrab works in your mobile browser today. The Android app is coming soon.</p>
-    </div>
-    <span class="promo-btn">Android app coming soon</span>
-  </div>
-</div>
-
-<div class="content">
-
-  <section>
-    <h2>Save in three quick steps</h2>
-    <div class="steps" id="how-to-steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <p>Open the app, tap <b>Share</b>, then <b>Copy Link</b> on the video you want.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <p>Come back here, paste the link into the box above, and hit <b>Download</b>.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <p>Choose <b>MP4</b> or <b>MP3</b> and save it straight to your device.</p>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <h2>Every platform and public website</h2>
-    <div class="app-list">
-      <a href="#">TikTok Downloader<span>No watermark, up to 4K</span></a>
-      <a href="#">Instagram Downloader<span>Photos, reels & stories</span></a>
-      <a href="#">Facebook Downloader<span>Up to 2K/4K quality</span></a>
-      <a href="#">Twitter / X Downloader<span>Videos and GIFs</span></a>
-      <a href="#">Reddit<span>Coming soon; try Web mode</span></a>
-      <a href="#">Web Downloader<span>Public media from other sites</span></a>
-    </div>
-  </section>
-
-  <section>
-    <h2>FAQ</h2>
-    <div id="faq-list">
-      <div class="faq-item open">
-        <div class="faq-q">Is it free to use?</div>
-        <div class="faq-a">Yes. ClipGrab works in your browser for public media from supported social platforms and other public websites. No account is required.</div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q">Why did a download fail?</div>
-        <div class="faq-a">Usually one of: the video is private, it's restricted in your country, it's been deleted, or the source platform is briefly blocking requests. Try again in a few minutes.</div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q">Do you keep a copy of my videos?</div>
-        <div class="faq-a">No. Nothing is stored on our servers — files are pulled from the original platform each time.</div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q">Is there an Android app?</div>
-        <div class="faq-a">The Android app is coming soon. For now, ClipGrab works in your browser on desktop and mobile.</div>
-      </div>
-    </div>
-  </section>
-
-</div>
-
-<div class="content legal-content">
-  <p>ClipGrab works with public media only. Use it for content you own or are allowed to save.</p>
-</div>
-
-<footer>
-  <div class="footer-inner">
-    <div>© 2026 ClipGrab</div>
-    <div class="footer-links">
-      <a href="/about" target="_blank" rel="noopener">About</a>
-      <a href="/terms" target="_blank" rel="noopener">Terms</a>
-      <a href="/privacy" target="_blank" rel="noopener">Privacy</a>
-    </div>
-  </div>
-</footer>
+<!-- Render assembles the page sections from sections/*.html. -->
+<!-- SECTION:header -->
+<!-- SECTION:hero -->
+<!-- SECTION:web-tools -->
+<!-- SECTION:cross-links -->
+<!-- SECTION:content -->
+<!-- SECTION:footer -->
 
 <script>
   const platformCopy = {
@@ -739,6 +573,7 @@
   let renderedMediaCount = 0;
   let batchSources = [];
   let batchSourceIndex = -1;
+  let batchRequestToken = 0;
   let batchMode = false;
   let batchName = '';
   const mediaBatchSize = 10;
@@ -871,12 +706,55 @@
     batchSourceIndex = sourceIndex;
     const source = batchSources[sourceIndex];
     if (!source) return;
-    renderedMediaItems = source.items;
+    urlInput.value = source.url;
+    renderedMediaItems = source.items || [];
     renderedMediaCount = Math.min(mediaBatchSize, visibleMediaItems().length);
     resultTitle.textContent = `${batchName || 'Batch'} ${sourceIndex + 1} of ${batchSources.length}: ${source.url}`;
+    const batchNavigation = `${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}`;
+    if (source.loading) {
+      resultSub.textContent = 'Finding images from this URL...';
+      mediaGrid.innerHTML = batchNavigation ? `<div class="batch-navigation">${batchNavigation}</div>` : '';
+      return;
+    }
+    if (source.error || !source.items?.length) {
+      resultSub.textContent = source.error || 'No images were found at this URL.';
+      mediaGrid.innerHTML = `<button class="load-more-media fetch-again" type="button" data-fetch-again="true">Fetch again</button>${batchNavigation ? `<div class="batch-navigation">${batchNavigation}</div>` : ''}`;
+      return;
+    }
     resultSub.textContent = `${visibleMediaItems().length} image${visibleMediaItems().length === 1 ? '' : 's'} from this URL.`;
     addSnapvidNotice(detectPlatform(source.url));
     renderMediaBatch(true);
+  }
+
+  async function fetchBatchSource(sourceIndex, force = false) {
+    const source = batchSources[sourceIndex];
+    if (!source || (source.items && !force)) {
+      renderBatchSource(sourceIndex);
+      return;
+    }
+    const requestToken = ++batchRequestToken;
+    source.loading = true;
+    source.error = '';
+    renderBatchSource(sourceIndex);
+    try {
+      const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ url: source.url }) });
+      const responseText = await response.text();
+      let data;
+      try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
+      if (!response.ok || !Array.isArray(data.items)) throw new Error(data.error || 'Could not resolve this URL.');
+      if (requestToken !== batchRequestToken) return;
+      source.items = data.items.map(item => ({ ...item, title: `${detectPlatform(source.url)}: ${item.title}`, id: `${source.url}#${item.index}` }));
+      source.error = '';
+    } catch (error) {
+      if (requestToken !== batchRequestToken) return;
+      source.items = [];
+      source.error = error.message || 'Could not resolve this URL.';
+    } finally {
+      if (requestToken === batchRequestToken) {
+        source.loading = false;
+        renderBatchSource(sourceIndex);
+      }
+    }
   }
 
   function renderMediaBatch(galleryMode) {
@@ -901,7 +779,7 @@
     }).join('') + (renderedMediaCount < visibleItems.length
       ? `<button class="load-more-media" type="button">Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)</button>`
       : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
-        ? `${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}`
+        ? `<div class="batch-navigation">${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}</div>`
         : '');
   }
 
@@ -924,14 +802,15 @@
   }
 
   function addSnapvidNotice(platform = selectedPlatform) {
-    if (platform === 'Web') return;
+    if (!['TikTok', 'Instagram', 'Facebook', 'X'].includes(platform)) return;
     const link = document.createElement('a');
-    link.className = 'external-download snapvid-link';
+    link.className = 'external-download snapvid-link snapvid-button';
     link.href = snapVidUrl(platform);
     link.dataset.sourceUrl = urlInput.value.trim();
     link.target = '_blank';
     link.rel = 'noopener';
-    link.textContent = 'If this does not work, try SnapVid';
+    link.textContent = 'Open SnapVid';
+    link.setAttribute('aria-label', `Open SnapVid for ${platform}`);
     resultSub.append(' ', link);
   }
 
@@ -941,6 +820,7 @@
     resultCard.classList.add('show');
     resultTitle.textContent = state.title || 'Media ready';
     resultSub.textContent = `${state.items.length} item${state.items.length === 1 ? '' : 's'} found. Choose a resolution where available.`;
+    addSnapvidNotice(detectPlatform(state.url || urlInput.value));
     renderMedia(state.items);
     Object.entries(state.resolutions || {}).forEach(([index, height]) => {
       const selector = mediaGrid.querySelector(`.resolution[data-item="${index}"]`);
@@ -1030,31 +910,22 @@
     const urls = document.getElementById('batch-input').value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
     const status = document.getElementById('batch-status');
     if (!urls.length) { status.textContent = 'Add at least one URL.'; return; }
-    status.textContent = `Searching ${urls.length} URL${urls.length === 1 ? '' : 's'}...`;
-    const sources = [];
-    const failures = [];
-    for (const value of urls) {
-      try {
-        new URL(value);
-        const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ url: value }) });
-        const data = await response.json();
-        if (!response.ok || !Array.isArray(data.items)) throw new Error(data.error || 'Could not resolve');
-        sources.push({ url: value, items: data.items.map(item => ({ ...item, title: `${detectPlatform(value)}: ${item.title}`, id: `${value}#${item.index}` })) });
-      } catch (error) { failures.push(`${value}: ${error.message || 'Could not resolve'}`); }
-    }
-    if (!sources.length) { status.textContent = failures.join(' | '); return; }
-    batchSources = sources;
+    const invalidUrl = urls.find(value => { try { new URL(value); return false; } catch { return true; } });
+    if (invalidUrl) { status.textContent = `${invalidUrl}: Enter a valid URL.`; return; }
+    batchRequestToken++;
+    batchSources = urls.map(url => ({ url, items: null, error: '', loading: false }));
     batchMode = true;
     batchName = batchNameInput.value.trim() || `Batch of ${urls.length} URLs`;
     batchNameInput.value = batchName;
     resultCard.classList.add('show');
-    resultTitle.textContent = 'Batch media ready';
-    resultSub.textContent = `${sources.reduce((total, source) => total + source.items.length, 0)} item${sources.reduce((total, source) => total + source.items.length, 0) === 1 ? '' : 's'} found from ${sources.length} URL${sources.length === 1 ? '' : 's'}.`;
-    renderBatchSource(0);
-    saveState({ platform: selectedPlatform, url: urls.join('\n'), title: 'Batch media ready', source: 'batch', items: sources.flatMap(source => source.items) });
+    resultTitle.textContent = `${batchName}: 1 of ${batchSources.length}`;
+    resultSub.textContent = 'Fetching the first URL. The other URLs will load only when selected.';
+    status.textContent = `${urls.length} URL${urls.length === 1 ? '' : 's'} queued. Fetching the first one...`;
+    saveState({ platform: selectedPlatform, url: urls.join('\n'), title: batchName, source: 'batch', items: [] });
     saveSectionState();
-    const totalItems = sources.reduce((total, source) => total + source.items.length, 0);
-    status.textContent = failures.length ? `${totalItems} found. ${failures.length} URL${failures.length === 1 ? '' : 's'} failed.` : `${totalItems} item${totalItems === 1 ? '' : 's'} ready.`;
+    await fetchBatchSource(0);
+    const source = batchSources[0];
+    status.textContent = source.error ? `First URL failed: ${source.error}` : `${source.items.length} item${source.items.length === 1 ? '' : 's'} ready. Other URLs load when selected.`;
   });
 
   mediaGrid.addEventListener('change', e => {
@@ -1076,11 +947,15 @@
     if (loadMoreButton) {
       const direction = loadMoreButton.dataset.batchDirection;
       if (direction === 'previous' && batchSourceIndex > 0) {
-        renderBatchSource(batchSourceIndex - 1);
+        fetchBatchSource(batchSourceIndex - 1);
         return;
       }
       if (direction === 'next' && batchSourceIndex < batchSources.length - 1) {
-        renderBatchSource(batchSourceIndex + 1);
+        fetchBatchSource(batchSourceIndex + 1);
+        return;
+      }
+      if (loadMoreButton.dataset.fetchAgain === 'true' && batchSourceIndex >= 0) {
+        fetchBatchSource(batchSourceIndex, true);
         return;
       }
       const visibleItems = visibleMediaItems();

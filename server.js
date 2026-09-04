@@ -29,6 +29,18 @@ const upstreamTimeoutMs = 120000;
 const metadataTimeoutMs = 30000;
 const directTypeTimeoutMs = 8000;
 
+const pageSections = ['header', 'hero', 'web-tools', 'cross-links', 'content', 'footer'];
+
+function renderClipgrabPage() {
+  let page = fs.readFileSync(path.join(__dirname, 'clipgrab.html'), 'utf8');
+  for (const section of pageSections) {
+    const marker = `<!-- SECTION:${section} -->`;
+    const partial = fs.readFileSync(path.join(__dirname, 'sections', `${section}.html`), 'utf8');
+    page = page.replace(marker, partial);
+  }
+  return page;
+}
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '10kb' }));
@@ -38,7 +50,11 @@ app.use((req, res, next) => {
   res.setHeader('Pragma', 'no-cache');
   next();
 });
-app.use(express.static(__dirname));
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path === '/clipgrab.html') return res.type('html').send(renderClipgrabPage());
+  next();
+});
+app.get('/favicon.svg', (req, res) => res.sendFile(path.join(__dirname, 'favicon.svg')));
 
 function parseUrl(value) {
   if (typeof value !== 'string' || value.length === 0 || value.length > maxUrlLength) {

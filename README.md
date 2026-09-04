@@ -1,6 +1,23 @@
 # ClipGrab
 
-A small Express web downloader for public media URLs and social pages. The homepage is served from `clipgrab.html`.
+A small Express web downloader for public media URLs and social pages. The homepage is assembled by the Express server from `clipgrab.html` and the files in `sections/`.
+
+## Page structure
+
+The reusable page sections live in separate files:
+
+- `sections/header.html`
+- `sections/hero.html`
+- `sections/web-tools.html`
+- `sections/cross-links.html`
+- `sections/content.html`
+- `sections/footer.html`
+
+`server.js` combines those partials when serving `/` or `/clipgrab.html`. Keep the section marker names in `clipgrab.html` synchronized with the files in `sections/`.
+
+## Render deployment
+
+Render runs the Node/Express server, so the page partials and `/api/media` backend work together in production. GitHub can store and version all of these files; GitHub Pages alone cannot run the Node backend.
 
 ## Run locally
 
@@ -26,6 +43,3 @@ Open http://localhost:3000.
 
 - `POST /api/media` with `{ "url": "https://..." }` returns media metadata and download format URLs.
 - `GET /api/download?url=...&format=video` streams a video download.
-- `GET /api/download?url=...&format=audio` streams an audio download when the source supports it.
-
-The backend accepts public HTTP/HTTPS URLs, blocks private network targets, applies a request rate limit, and does not support private or restricted content. Only download content you own or are allowed to save.
