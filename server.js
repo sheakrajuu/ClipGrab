@@ -316,7 +316,7 @@ app.get('/api/download', async (req, res) => {
     await rejectPrivateHost(parsed);
     const format = ['audio', 'image', 'video'].includes(req.query.format) ? req.query.format : 'video';
     logStage('download request', parsed, format);
-    const directMedia = await isDirectMedia(parsed);
+    const directMedia = format === 'image' ? true : await isDirectMedia(parsed);
     if (directMedia && format === 'video' && /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) {
       try {
         const metadata = JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', '--no-playlist', '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
@@ -402,11 +402,17 @@ app.get('/api/preview', async (req, res) => {
       return res.send(cached.body);
     }
     previewCache.delete(cacheKey);
-    const headers = { 'User-Agent': 'ClipGrab/1.0' };
+    const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36', Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' };
     if (referer) headers.Referer = referer.toString();
-    const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers });
+    let upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers });
+    let contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!upstream.ok || !upstream.body || !/^image\//.test(contentType)) {
+      if (upstream.body) upstream.body.cancel().catch(() => {});
+      delete headers.Referer;
+      upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers });
+      contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    }
     if (!upstream.ok || !upstream.body) throw new Error('Preview unavailable.');
-    const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     if (!/^image\//.test(contentType)) throw new Error('Preview is not an image.');
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=300');

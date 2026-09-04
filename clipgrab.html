@@ -203,10 +203,12 @@
   .gallery-mode .gallery-tile img{height:100%;aspect-ratio:1;object-fit:cover;margin:0;border-radius:0;transition:transform .2s ease;}
   .gallery-mode .gallery-tile:hover img{transform:scale(1.04);}
   .gallery-mode .gallery-tile .media-item-body{display:none;}
+  .load-more-media{grid-column:1 / -1;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:11px;font:600 13px Inter,sans-serif;cursor:pointer;}
+  .load-more-media:hover{background:#EEF0E8;}
   .image-fallback{height:100%;min-height:120px;display:grid;place-items:center;background:#27302C;color:#AEB2C4;font-size:12px;}
   .gallery-viewer{position:fixed;inset:0;z-index:20;background:rgba(10,12,14,.96);display:none;align-items:center;justify-content:center;padding:24px;}
   .gallery-viewer.open{display:flex;}
-  .gallery-track{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x;}
+  .gallery-track{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x pinch-zoom;-webkit-overflow-scrolling:touch;}
   .gallery-track::-webkit-scrollbar{display:none;}
   .gallery-slide{min-width:100%;height:100%;display:grid;place-items:center;scroll-snap-align:center;}
   .gallery-slide img{max-width:100%;max-height:100%;object-fit:contain;}
@@ -424,6 +426,10 @@
     .media-item img,.media-item video{max-height:420px;}
     .media-item-body{width:100%;}
     .media-download{width:100%;}
+    .saved-url-form{flex-direction:column;}
+    .saved-url-form input,.save-url-btn{width:100%;}
+    .gallery-viewer{padding:12px;}
+    .gallery-close{top:10px;right:10px;}
     .web-download-inner{align-items:stretch;flex-direction:column;padding:22px;}.web-cta{text-align:center;}
     .promo-inner{flex-direction:column;align-items:flex-start;}
   }
@@ -672,8 +678,12 @@
   const galleryTrack = document.getElementById('gallery-track');
   let galleryIndex = 0;
   let galleryTouchStartX = 0;
+  let renderedMediaItems = [];
+  let renderedMediaCount = 0;
+  const mediaBatchSize = 10;
   let selectedPlatform = 'TikTok';
   const storageKey = 'clipgrab-download-state-v2';
+  const sectionStatesKey = 'clipgrab-section-states-v1';
   const savedUrlsKey = 'clipgrab-saved-urls-v1';
 
   function saveState(state) {
@@ -682,6 +692,23 @@
 
   function readState() {
     try { return JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch { return null; }
+  }
+
+  function readSectionStates() {
+    try { return JSON.parse(localStorage.getItem(sectionStatesKey) || '{}'); } catch { return {}; }
+  }
+
+  function saveSectionState(platform = selectedPlatform) {
+    const state = readState();
+    if (!state) return;
+    const states = readSectionStates();
+    states[platform] = { ...state, platform };
+    try { localStorage.setItem(sectionStatesKey, JSON.stringify(states)); } catch {}
+  }
+
+  function readSectionState(platform) {
+    const state = readSectionStates()[platform];
+    return state && typeof state === 'object' ? state : null;
   }
 
   function readSavedUrls() {
@@ -743,7 +770,14 @@
   }
 
   function renderMedia(items, galleryMode = items.length > 0 && items.every(item => item.type === 'image')) {
+    renderedMediaItems = items;
+    renderedMediaCount = galleryMode ? Math.min(mediaBatchSize, items.length) : items.length;
+    renderMediaBatch(galleryMode);
+  }
+
+  function renderMediaBatch(galleryMode) {
     mediaGrid.classList.toggle('gallery-mode', galleryMode);
+    const items = renderedMediaItems.slice(0, renderedMediaCount);
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : 'video';
       const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
@@ -758,7 +792,7 @@
       const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
       const galleryTile = galleryMode && item.type === 'image' ? ' gallery-tile' : '';
       return `<article class="media-item${galleryTile}">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
-    }).join('');
+    }).join('') + (renderedMediaCount < renderedMediaItems.length ? `<button class="load-more-media" type="button">Load more images (${renderedMediaItems.length - renderedMediaCount} remaining)</button>` : '');
   }
 
   function restoreResults(state) {
@@ -782,17 +816,22 @@
     resultSub.textContent = 'Checking the source and available formats.';
     mediaGrid.innerHTML = '';
     const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ url: value }) });
-    const data = await response.json();
+    const responseText = await response.text();
+    let data;
+    try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
     if (!response.ok) throw new Error(data.error || 'The source could not be resolved.');
+    if (!data || !Array.isArray(data.items)) throw new Error(data.error || 'The source returned an invalid response.');
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
     resultSub.textContent = `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found. Choose a resolution where available.`;
     renderMedia(data.items || []);
     fetchHint.textContent = 'Enjoy your media.';
     saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, source: data.source, items: data.items || [] });
+    saveSectionState();
   }
 
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
+      saveSectionState();
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       selectedPlatform = tab.dataset.platform;
@@ -812,9 +851,12 @@
       stepsWrap.innerHTML = data.steps.map((s, i) =>
         `<div class="step"><div class="step-num">${i+1}</div><p>${s}</p></div>`
       ).join('');
+      const nextState = readSectionState(selectedPlatform);
+      urlInput.value = nextState?.url || '';
       resultCard.classList.remove('show');
       mediaGrid.innerHTML = '';
-      saveState({ platform: selectedPlatform, url: urlInput.value });
+      saveState(nextState || { platform: selectedPlatform, url: urlInput.value });
+      if (nextState) restoreResults(nextState);
     });
   });
 
@@ -846,8 +888,15 @@
     state.resolutions = state.resolutions || {};
     state.resolutions[e.target.dataset.item] = e.target.value;
     saveState(state);
+    saveSectionState();
   });
   mediaGrid.addEventListener('click', e => {
+    const loadMoreButton = e.target.closest('.load-more-media');
+    if (loadMoreButton) {
+      renderedMediaCount = Math.min(renderedMediaCount + mediaBatchSize, renderedMediaItems.length);
+      renderMediaBatch(true);
+      return;
+    }
     const galleryImage = e.target.closest('.gallery-mode .gallery-tile img[data-gallery-src]');
     if (galleryImage) {
       const images = [...mediaGrid.querySelectorAll('.gallery-mode .gallery-tile img[data-gallery-src]')];
@@ -935,6 +984,9 @@
   renderSavedUrls();
   if (savedState) {
     if (savedState.platform && savedState.platform !== selectedPlatform) setActiveTab(savedState.platform);
+    const states = readSectionStates();
+    states[savedState.platform || selectedPlatform] = savedState;
+    try { localStorage.setItem(sectionStatesKey, JSON.stringify(states)); } catch {}
     urlInput.value = savedState.url || '';
     restoreResults(savedState);
   }
