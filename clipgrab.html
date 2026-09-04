@@ -170,8 +170,13 @@
   .saved-url-remove{border:0;background:transparent;color:#8B8FA3;font-size:17px;line-height:1;cursor:pointer;padding:0 2px;}
   .saved-url-remove:hover{color:#fff;}
   .batch-section{max-width:640px;margin:18px auto 0;text-align:left;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;}
-  .batch-header{display:flex;justify-content:space-between;gap:12px;align-items:baseline;color:#fff;font-size:13px;font-weight:600;margin-bottom:8px;}
+  .batch-header{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#fff;font-size:13px;font-weight:600;margin-bottom:8px;}
   .batch-header span{color:#8B8FA3;font-size:11px;font-weight:400;}
+  .batch-name-tools{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+  .batch-name{width:170px;min-width:0;border:1px solid rgba(255,255,255,.14);border-radius:7px;background:rgba(255,255,255,.07);color:#fff;padding:6px 8px;font:600 12px Inter,sans-serif;outline:none;}
+  .batch-name:focus{border-color:var(--accent);}
+  .batch-name-save{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:6px 8px;font:600 11px Inter,sans-serif;cursor:pointer;white-space:nowrap;}
+  .batch-name-save:hover{border-color:var(--accent);color:var(--accent);}
   .batch-form{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:end;}
   .batch-form textarea{width:100%;min-width:0;min-height:68px;resize:vertical;scrollbar-width:none;border:1px solid rgba(255,255,255,.14);border-radius:7px;background:rgba(255,255,255,.07);color:#fff;padding:9px 10px;font:12px/1.45 Inter,sans-serif;outline:none;}
   .batch-form textarea::-webkit-scrollbar{width:0;height:0;display:none;background:transparent;}
@@ -224,16 +229,18 @@
   .gallery-mode .gallery-tile:hover img{transform:scale(1.04);}
   .gallery-mode .gallery-tile .media-item-body{display:none;}
   .hide-image{position:absolute;right:7px;top:7px;border:0;border-radius:6px;background:rgba(16,19,22,.82);color:#fff;padding:6px 8px;font:600 11px Inter,sans-serif;cursor:pointer;opacity:0;transition:opacity .15s ease;z-index:1;}
-  .gallery-tile:hover .hide-image,.gallery-tile:focus-within .hide-image{opacity:1;}
+  .gallery-tile .hide-image{pointer-events:none;}
+  .gallery-tile:hover .hide-image,.gallery-tile:focus-within .hide-image{opacity:1;pointer-events:auto;}
   .load-more-media{grid-column:1 / -1;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:11px;font:600 13px Inter,sans-serif;cursor:pointer;}
   .load-more-media:hover{background:#EEF0E8;}
+  #unhide-images-btn{display:block;margin:10px auto 0;}
   .image-fallback{height:100%;min-height:120px;display:grid;place-items:center;background:#27302C;color:#AEB2C4;font-size:12px;}
   .gallery-viewer{position:fixed;inset:0;z-index:20;background:rgba(10,12,14,.96);display:none;align-items:center;justify-content:center;padding:24px;}
   .gallery-viewer.open{display:flex;}
-  .gallery-track{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x pinch-zoom;-webkit-overflow-scrolling:touch;}
+  .gallery-track{display:flex;width:100%;height:100%;overflow-x:auto;scroll-behavior:smooth;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x pinch-zoom;-webkit-overflow-scrolling:touch;}
   .gallery-track::-webkit-scrollbar{width:0;height:0;display:none;background:transparent;}
   .gallery-track::-webkit-scrollbar-thumb{background:transparent;}
-  .gallery-slide{min-width:100%;height:100%;display:grid;place-items:center;scroll-snap-align:center;}
+  .gallery-slide{min-width:100%;height:100%;display:grid;place-items:center;scroll-snap-align:center;scroll-snap-stop:always;}
   .gallery-slide img{max-width:100%;max-height:100%;object-fit:contain;}
   .gallery-close{position:absolute;top:16px;right:18px;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#101316;font-size:25px;line-height:1;cursor:pointer;z-index:1;}
   .media-item-body{min-width:0;flex:1}.media-item-title{font-weight:700;font-size:13px;overflow-wrap:anywhere;margin-bottom:8px;}
@@ -437,6 +444,8 @@
   @media (max-width:720px){
     .batch-form{grid-template-columns:1fr;}
     .batch-form button{width:100%;}
+    .batch-name-tools{width:100%;}
+    .batch-name{flex:1;width:auto;}
     .hero{padding-left:16px;padding-right:16px;}
     .tabs{justify-content:flex-start;}
     .tab{flex:1 1 calc(50% - 6px);text-align:center;padding-left:8px;padding-right:8px;}
@@ -517,6 +526,7 @@
     <div class="web-tools-dialog-header"><h2 id="web-tools-title">Web tools</h2><button class="web-tools-close" id="web-tools-close" type="button" aria-label="Close Web tools">&times;</button></div>
     <section class="batch-section" aria-label="Batch URL search">
       <div class="batch-header">Batch search <span>One URL per line or separated by commas</span></div>
+      <div class="batch-name-tools"><input class="batch-name" id="batch-name" type="text" maxlength="60" placeholder="Name this batch" aria-label="Batch name"><button class="batch-name-save" id="rename-batch-btn" type="button">Rename batch</button></div>
       <form class="batch-form" id="batch-form">
         <textarea id="batch-input" placeholder="https://example.com/page-one&#10;https://example.com/page-two" aria-label="Batch URLs"></textarea>
         <button class="batch-btn" type="submit">Find batch</button>
@@ -561,6 +571,7 @@
   <div class="promo-inner">
     <div>
       <h3>Use ClipGrab on mobile</h3>
+    <button class="save-url-btn" id="unhide-images-btn" type="button" hidden>Unhide images</button>
       <p>ClipGrab works in your mobile browser today. The Android app is coming soon.</p>
     </div>
     <span class="promo-btn">Android app coming soon</span>
@@ -715,17 +726,21 @@
   const savedUrlSection = document.getElementById('saved-url-section');
   const savedUrlName = document.getElementById('saved-url-name');
   const savedUrlList = document.getElementById('saved-url-list');
+  const batchNameInput = document.getElementById('batch-name');
+  const unhideImagesButton = document.getElementById('unhide-images-btn');
   const webToolsButton = document.getElementById('web-tools-btn');
   const webToolsModal = document.getElementById('web-tools-modal');
   const galleryViewer = document.getElementById('gallery-viewer');
   const galleryTrack = document.getElementById('gallery-track');
   let galleryIndex = 0;
   let galleryTouchStartX = 0;
+  let galleryImages = [];
   let renderedMediaItems = [];
   let renderedMediaCount = 0;
   let batchSources = [];
   let batchSourceIndex = -1;
   let batchMode = false;
+  let batchName = '';
   const mediaBatchSize = 10;
   let selectedPlatform = 'TikTok';
   const storageKey = 'clipgrab-download-state-v2';
@@ -781,10 +796,15 @@
     return renderedMediaItems.filter(item => !hidden.has(mediaKey(item)));
   }
 
+  function updateUnhideButton() {
+    unhideImagesButton.hidden = readHiddenImages().size === 0;
+  }
+
   function hideImage(item) {
     const hidden = readHiddenImages();
     hidden.add(mediaKey(item));
     try { localStorage.setItem(hiddenImagesKey, JSON.stringify([...hidden])); } catch {}
+    updateUnhideButton();
     renderMediaBatch(true);
     if (galleryViewer.classList.contains('open')) closeGallery();
   }
@@ -853,7 +873,7 @@
     if (!source) return;
     renderedMediaItems = source.items;
     renderedMediaCount = Math.min(mediaBatchSize, visibleMediaItems().length);
-    resultTitle.textContent = `Batch ${sourceIndex + 1} of ${batchSources.length}: ${source.url}`;
+    resultTitle.textContent = `${batchName || 'Batch'} ${sourceIndex + 1} of ${batchSources.length}: ${source.url}`;
     resultSub.textContent = `${visibleMediaItems().length} image${visibleMediaItems().length === 1 ? '' : 's'} from this URL.`;
     addSnapvidNotice(detectPlatform(source.url));
     renderMediaBatch(true);
@@ -880,8 +900,8 @@
       return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
     }).join('') + (renderedMediaCount < visibleItems.length
       ? `<button class="load-more-media" type="button">Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)</button>`
-      : batchMode && batchSourceIndex < batchSources.length - 1
-        ? '<button class="load-more-media" type="button">Jump to next</button>'
+      : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
+        ? `${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}`
         : '');
   }
 
@@ -890,11 +910,25 @@
     galleryViewer.setAttribute('aria-hidden', 'true');
   }
 
+  function updateGalleryWindow() {
+    const first = Math.max(0, galleryIndex - 5);
+    const last = Math.min(galleryImages.length - 1, galleryIndex + 5);
+    galleryTrack.querySelectorAll('.gallery-slide img').forEach(image => {
+      const imageIndex = Number(image.dataset.galleryIndex);
+      if (imageIndex >= first && imageIndex <= last) {
+        if (!image.hasAttribute('src')) image.src = image.dataset.gallerySrc;
+      } else if (image.hasAttribute('src')) {
+        image.removeAttribute('src');
+      }
+    });
+  }
+
   function addSnapvidNotice(platform = selectedPlatform) {
     if (platform === 'Web') return;
     const link = document.createElement('a');
-    link.className = 'external-download';
+    link.className = 'external-download snapvid-link';
     link.href = snapVidUrl(platform);
+    link.dataset.sourceUrl = urlInput.value.trim();
     link.target = '_blank';
     link.rel = 'noopener';
     link.textContent = 'If this does not work, try SnapVid';
@@ -1011,6 +1045,8 @@
     if (!sources.length) { status.textContent = failures.join(' | '); return; }
     batchSources = sources;
     batchMode = true;
+    batchName = batchNameInput.value.trim() || `Batch of ${urls.length} URLs`;
+    batchNameInput.value = batchName;
     resultCard.classList.add('show');
     resultTitle.textContent = 'Batch media ready';
     resultSub.textContent = `${sources.reduce((total, source) => total + source.items.length, 0)} item${sources.reduce((total, source) => total + source.items.length, 0) === 1 ? '' : 's'} found from ${sources.length} URL${sources.length === 1 ? '' : 's'}.`;
@@ -1038,23 +1074,32 @@
     }
     const loadMoreButton = e.target.closest('.load-more-media');
     if (loadMoreButton) {
+      const direction = loadMoreButton.dataset.batchDirection;
+      if (direction === 'previous' && batchSourceIndex > 0) {
+        renderBatchSource(batchSourceIndex - 1);
+        return;
+      }
+      if (direction === 'next' && batchSourceIndex < batchSources.length - 1) {
+        renderBatchSource(batchSourceIndex + 1);
+        return;
+      }
       const visibleItems = visibleMediaItems();
       if (renderedMediaCount < visibleItems.length) {
         renderedMediaCount = Math.min(renderedMediaCount + mediaBatchSize, visibleItems.length);
         renderMediaBatch(true);
-      } else if (batchMode && batchSourceIndex < batchSources.length - 1) {
-        renderBatchSource(batchSourceIndex + 1);
       }
       return;
     }
     const galleryImage = e.target.closest('.gallery-mode .gallery-tile img[data-gallery-src]');
     if (galleryImage) {
-      const images = visibleMediaItems().filter(item => item.type === 'image');
-      galleryTrack.innerHTML = images.map(item => `<div class="gallery-slide"><img src="${escapeHtml(item.thumbnail)}" alt=""></div>`).join('');
-      galleryIndex = images.findIndex(item => item.id === galleryImage.closest('[data-media-id]')?.dataset.mediaId);
+      galleryImages = visibleMediaItems().filter(item => item.type === 'image');
+      galleryIndex = galleryImages.findIndex(item => item.id === galleryImage.closest('[data-media-id]')?.dataset.mediaId);
+      galleryIndex = Math.max(0, galleryIndex);
+      galleryTrack.innerHTML = galleryImages.map((item, index) => `<div class="gallery-slide"><img data-gallery-index="${index}" data-gallery-src="${escapeHtml(item.thumbnail)}" alt=""></div>`).join('');
+      updateGalleryWindow();
       galleryViewer.classList.add('open');
       galleryViewer.setAttribute('aria-hidden', 'false');
-      galleryTrack.scrollTo({ left: galleryTrack.clientWidth * Math.max(0, galleryIndex), behavior: 'auto' });
+      galleryTrack.scrollTo({ left: galleryTrack.clientWidth * galleryIndex, behavior: 'auto' });
       return;
     }
     const button = e.target.closest('.media-download');
@@ -1090,11 +1135,26 @@
   document.getElementById('save-batch-btn').addEventListener('click', () => {
     const urls = document.getElementById('batch-input').value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
     if (!urls.length) return;
-    const name = savedUrlName.value.trim() || `Batch of ${urls.length} URLs`;
+    const name = savedUrlName.value.trim() || batchNameInput.value.trim() || `Batch of ${urls.length} URLs`;
     const batches = [{ name, urls }, ...readSavedUrls().filter(entry => JSON.stringify(entry.urls) !== JSON.stringify(urls))].slice(0, 10);
     saveSavedUrls(batches);
     savedUrlName.value = '';
     renderSavedUrls();
+  });
+  document.getElementById('rename-batch-btn').addEventListener('click', () => {
+    if (!batchSources.length) return;
+    batchName = batchNameInput.value.trim() || `Batch of ${batchSources.length} URLs`;
+    batchNameInput.value = batchName;
+    renderBatchSource(batchSourceIndex);
+    const state = readState() || {};
+    state.title = batchName;
+    saveState(state);
+    saveSectionState();
+  });
+  unhideImagesButton.addEventListener('click', () => {
+    try { localStorage.removeItem(hiddenImagesKey); } catch {}
+    updateUnhideButton();
+    if (renderedMediaItems.length) renderMediaBatch(batchMode || renderedMediaItems.every(item => item.type === 'image'));
   });
   webToolsButton.addEventListener('click', () => {
     webToolsModal.classList.add('open');
@@ -1122,6 +1182,7 @@
     if (loadButton) {
       if (loadButton.dataset.batch === 'true') {
         document.getElementById('batch-input').value = loadButton.dataset.url || '';
+        batchNameInput.value = loadButton.textContent.replace(/\s+\d+ URLs$/, '').trim();
         document.getElementById('batch-form').requestSubmit();
       } else {
         urlInput.value = loadButton.dataset.url || '';
@@ -1154,8 +1215,16 @@
     galleryTrack.scrollTo({ left: galleryTrack.clientWidth * galleryIndex, behavior: 'smooth' });
   }, { passive: true });
   galleryTrack.addEventListener('scroll', () => {
-    if (galleryTrack.clientWidth) galleryIndex = Math.round(galleryTrack.scrollLeft / galleryTrack.clientWidth);
+    if (galleryTrack.clientWidth) {
+      const nextIndex = Math.round(galleryTrack.scrollLeft / galleryTrack.clientWidth);
+      if (nextIndex !== galleryIndex) {
+        galleryIndex = nextIndex;
+        updateGalleryWindow();
+      }
+    }
   }, { passive: true });
+
+  updateUnhideButton();
 
   const savedState = readState();
   renderSavedUrls();

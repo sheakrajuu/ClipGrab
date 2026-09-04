@@ -219,7 +219,7 @@ async function extractPageImages(parsed) {
   });
   const normalized = [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))];
   const fullSize = normalized.filter(value => !isInstagramResizedPreview(value));
-  return (/(^|\.)instagram\.com$/i.test(parsed.hostname) && fullSize.length ? fullSize : normalized).slice(0, 30);
+  return /(^|\.)instagram\.com$/i.test(parsed.hostname) && fullSize.length ? fullSize : normalized;
 }
 
 async function extractPageVideos(parsed) {
