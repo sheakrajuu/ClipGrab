@@ -217,7 +217,9 @@ async function extractPageImages(parsed) {
     addSourceSet($(element).attr('srcset') || $(element).attr('data-srcset'));
     for (const attribute of ['data-src', 'data-lazy-src', 'data-original', 'data-original-src', 'data-url', 'data-image', 'src']) candidates.push($(element).attr(attribute));
   });
-  return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))].slice(0, 30);
+  const normalized = [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))];
+  const fullSize = normalized.filter(value => !isInstagramResizedPreview(value));
+  return (/(^|\.)instagram\.com$/i.test(parsed.hostname) && fullSize.length ? fullSize : normalized).slice(0, 30);
 }
 
 async function extractPageVideos(parsed) {

@@ -169,6 +169,26 @@
   .saved-url-load span{display:block;overflow:hidden;text-overflow:ellipsis;color:#8B8FA3;font-size:11px;font-weight:400;margin-top:2px;}
   .saved-url-remove{border:0;background:transparent;color:#8B8FA3;font-size:17px;line-height:1;cursor:pointer;padding:0 2px;}
   .saved-url-remove:hover{color:#fff;}
+  .batch-section{max-width:640px;margin:18px auto 0;text-align:left;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;}
+  .batch-header{display:flex;justify-content:space-between;gap:12px;align-items:baseline;color:#fff;font-size:13px;font-weight:600;margin-bottom:8px;}
+  .batch-header span{color:#8B8FA3;font-size:11px;font-weight:400;}
+  .batch-form{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:end;}
+  .batch-form textarea{width:100%;min-width:0;min-height:68px;resize:vertical;scrollbar-width:none;border:1px solid rgba(255,255,255,.14);border-radius:7px;background:rgba(255,255,255,.07);color:#fff;padding:9px 10px;font:12px/1.45 Inter,sans-serif;outline:none;}
+  .batch-form textarea::-webkit-scrollbar{width:0;height:0;display:none;background:transparent;}
+  .batch-form textarea:focus{border-color:var(--accent);}
+  .batch-btn{border:0;border-radius:7px;background:var(--accent);color:var(--bg);padding:10px 12px;font:700 12px Inter,sans-serif;cursor:pointer;white-space:nowrap;}
+  .batch-btn:hover{background:var(--accent-dark);}
+  .batch-status{color:#8B8FA3;font-size:11px;margin:8px 0 0;}
+  .web-tools-btn{display:none;margin:16px auto 0;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:9px 12px;font:600 12px Inter,sans-serif;cursor:pointer;}
+  .web-tools-btn.visible{display:block;}
+  .web-tools-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .web-tools-modal{position:fixed;inset:0;z-index:30;background:rgba(10,12,14,.78);display:none;align-items:center;justify-content:center;padding:20px;}
+  .web-tools-modal.open{display:flex;}
+  .web-tools-dialog{width:min(640px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--bg);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+  .web-tools-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#fff;margin-bottom:4px;}
+  .web-tools-dialog-header h2{font-size:20px;}
+  .web-tools-close{width:34px;height:34px;border:0;border-radius:50%;background:#fff;color:var(--bg);font-size:22px;line-height:1;cursor:pointer;}
+  .web-tools-dialog .batch-section,.web-tools-dialog .saved-url-section{display:block;max-width:none;margin:14px 0 0;}
 
   /* result card (hidden by default, shown after "download") */
   .result-card{
@@ -198,18 +218,21 @@
   .media-grid{display:grid;grid-template-columns:1fr;gap:16px;max-width:760px;margin:20px auto 0;}
   .media-grid.gallery-mode{grid-template-columns:repeat(3,1fr);gap:8px;max-width:760px;}
   .media-item{background:#fff;color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:12px;}
-  .gallery-mode .gallery-tile{padding:0;border:0;overflow:hidden;cursor:pointer;aspect-ratio:1;background:#101316;}
+  .gallery-mode .gallery-tile{padding:0;border:0;overflow:hidden;cursor:pointer;aspect-ratio:1;background:#101316;position:relative;}
   .media-item img,.media-item video{display:block;width:100%;max-height:520px;aspect-ratio:16 / 9;object-fit:contain;border-radius:8px;background:#101316;margin-bottom:12px;}
-  .gallery-mode .gallery-tile img{height:100%;aspect-ratio:1;object-fit:cover;margin:0;border-radius:0;transition:transform .2s ease;}
+  .gallery-mode .gallery-tile img{height:100%;aspect-ratio:1;object-fit:contain;margin:0;border-radius:0;transition:transform .2s ease;}
   .gallery-mode .gallery-tile:hover img{transform:scale(1.04);}
   .gallery-mode .gallery-tile .media-item-body{display:none;}
+  .hide-image{position:absolute;right:7px;top:7px;border:0;border-radius:6px;background:rgba(16,19,22,.82);color:#fff;padding:6px 8px;font:600 11px Inter,sans-serif;cursor:pointer;opacity:0;transition:opacity .15s ease;z-index:1;}
+  .gallery-tile:hover .hide-image,.gallery-tile:focus-within .hide-image{opacity:1;}
   .load-more-media{grid-column:1 / -1;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:11px;font:600 13px Inter,sans-serif;cursor:pointer;}
   .load-more-media:hover{background:#EEF0E8;}
   .image-fallback{height:100%;min-height:120px;display:grid;place-items:center;background:#27302C;color:#AEB2C4;font-size:12px;}
   .gallery-viewer{position:fixed;inset:0;z-index:20;background:rgba(10,12,14,.96);display:none;align-items:center;justify-content:center;padding:24px;}
   .gallery-viewer.open{display:flex;}
   .gallery-track{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x pinch-zoom;-webkit-overflow-scrolling:touch;}
-  .gallery-track::-webkit-scrollbar{display:none;}
+  .gallery-track::-webkit-scrollbar{width:0;height:0;display:none;background:transparent;}
+  .gallery-track::-webkit-scrollbar-thumb{background:transparent;}
   .gallery-slide{min-width:100%;height:100%;display:grid;place-items:center;scroll-snap-align:center;}
   .gallery-slide img{max-width:100%;max-height:100%;object-fit:contain;}
   .gallery-close{position:absolute;top:16px;right:18px;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#101316;font-size:25px;line-height:1;cursor:pointer;z-index:1;}
@@ -412,6 +435,8 @@
   .footer-links a:hover{color:#fff;}
 
   @media (max-width:720px){
+    .batch-form{grid-template-columns:1fr;}
+    .batch-form button{width:100%;}
     .hero{padding-left:16px;padding-right:16px;}
     .tabs{justify-content:flex-start;}
     .tab{flex:1 1 calc(50% - 6px);text-align:center;padding-left:8px;padding-right:8px;}
@@ -473,11 +498,7 @@
       </div>
     </form>
     <div class="fetch-hint" id="fetch-hint">Supports TikTok, Instagram, Facebook, X and public websites.</div>
-    <section class="saved-url-section" id="saved-url-section" aria-label="Saved URLs" hidden>
-      <div class="saved-url-header"><span>Saved URLs</span></div>
-      <div class="saved-url-form"><input type="text" id="saved-url-name" placeholder="Name this URL" maxlength="60"><button class="save-url-btn" id="save-url-btn" type="button">Save current URL</button></div>
-      <div class="saved-url-list" id="saved-url-list"></div>
-    </section>
+    <button class="web-tools-btn" id="web-tools-btn" type="button">Open Web tools</button>
 
     <div class="result-card gallery" id="result-card">
       <div class="result-thumb"></div>
@@ -490,6 +511,26 @@
     </div>
   </div>
 </section>
+
+<div class="web-tools-modal" id="web-tools-modal" role="dialog" aria-modal="true" aria-labelledby="web-tools-title" aria-hidden="true">
+  <div class="web-tools-dialog">
+    <div class="web-tools-dialog-header"><h2 id="web-tools-title">Web tools</h2><button class="web-tools-close" id="web-tools-close" type="button" aria-label="Close Web tools">&times;</button></div>
+    <section class="batch-section" aria-label="Batch URL search">
+      <div class="batch-header">Batch search <span>One URL per line or separated by commas</span></div>
+      <form class="batch-form" id="batch-form">
+        <textarea id="batch-input" placeholder="https://example.com/page-one&#10;https://example.com/page-two" aria-label="Batch URLs"></textarea>
+        <button class="batch-btn" type="submit">Find batch</button>
+        <button class="save-url-btn" id="save-batch-btn" type="button">Save batch</button>
+      </form>
+      <div class="batch-status" id="batch-status" aria-live="polite"></div>
+    </section>
+    <section class="saved-url-section" id="saved-url-section" aria-label="Saved URLs">
+      <div class="saved-url-header"><span>Saved URLs</span></div>
+      <div class="saved-url-form"><input type="text" id="saved-url-name" placeholder="Name this URL" maxlength="60"><button class="save-url-btn" id="save-url-btn" type="button">Save current URL</button></div>
+      <div class="saved-url-list" id="saved-url-list"></div>
+    </section>
+  </div>
+</div>
 
 <div class="cross-links">
   <div class="cross-grid">
@@ -674,17 +715,23 @@
   const savedUrlSection = document.getElementById('saved-url-section');
   const savedUrlName = document.getElementById('saved-url-name');
   const savedUrlList = document.getElementById('saved-url-list');
+  const webToolsButton = document.getElementById('web-tools-btn');
+  const webToolsModal = document.getElementById('web-tools-modal');
   const galleryViewer = document.getElementById('gallery-viewer');
   const galleryTrack = document.getElementById('gallery-track');
   let galleryIndex = 0;
   let galleryTouchStartX = 0;
   let renderedMediaItems = [];
   let renderedMediaCount = 0;
+  let batchSources = [];
+  let batchSourceIndex = -1;
+  let batchMode = false;
   const mediaBatchSize = 10;
   let selectedPlatform = 'TikTok';
   const storageKey = 'clipgrab-download-state-v2';
   const sectionStatesKey = 'clipgrab-section-states-v1';
   const savedUrlsKey = 'clipgrab-saved-urls-v1';
+  const hiddenImagesKey = 'clipgrab-hidden-images-v1';
 
   function saveState(state) {
     try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch {}
@@ -713,7 +760,7 @@
 
   function readSavedUrls() {
     try {
-      return JSON.parse(localStorage.getItem(savedUrlsKey) || '[]').map(value => typeof value === 'string' ? { name: value, url: value } : value).filter(value => value && typeof value.url === 'string');
+      return JSON.parse(localStorage.getItem(savedUrlsKey) || '[]').map(value => typeof value === 'string' ? { name: value, url: value } : value).filter(value => value && (typeof value.url === 'string' || Array.isArray(value.urls)));
     } catch { return []; }
   }
 
@@ -721,8 +768,33 @@
     try { localStorage.setItem(savedUrlsKey, JSON.stringify(urls)); } catch {}
   }
 
+  function readHiddenImages() {
+    try { return new Set(JSON.parse(localStorage.getItem(hiddenImagesKey) || '[]')); } catch { return new Set(); }
+  }
+
+  function mediaKey(item) {
+    return item.id || item.downloads?.image || item.thumbnail || `${item.title}-${item.index}`;
+  }
+
+  function visibleMediaItems() {
+    const hidden = readHiddenImages();
+    return renderedMediaItems.filter(item => !hidden.has(mediaKey(item)));
+  }
+
+  function hideImage(item) {
+    const hidden = readHiddenImages();
+    hidden.add(mediaKey(item));
+    try { localStorage.setItem(hiddenImagesKey, JSON.stringify([...hidden])); } catch {}
+    renderMediaBatch(true);
+    if (galleryViewer.classList.contains('open')) closeGallery();
+  }
+
   function renderSavedUrls() {
-    savedUrlList.innerHTML = readSavedUrls().map((entry, index) => `<div class="saved-url-item"><button class="saved-url-load" type="button" data-url="${escapeHtml(entry.url)}" title="Open ${escapeHtml(entry.name)}">${escapeHtml(entry.name)}<span>${escapeHtml(entry.url)}</span></button><button class="saved-url-remove" type="button" data-index="${index}" aria-label="Remove saved URL">&times;</button></div>`).join('');
+    savedUrlList.innerHTML = readSavedUrls().map((entry, index) => {
+      const batch = Array.isArray(entry.urls);
+      const value = batch ? entry.urls.join('\n') : entry.url;
+      return `<div class="saved-url-item"><button class="saved-url-load" type="button" data-url="${escapeHtml(value)}" data-batch="${batch}" title="Open ${escapeHtml(entry.name)}">${escapeHtml(entry.name)}<span>${escapeHtml(batch ? `${entry.urls.length} URLs` : entry.url)}</span></button><button class="saved-url-remove" type="button" data-index="${index}" aria-label="Remove saved URL">&times;</button></div>`;
+    }).join('');
   }
 
   function setActiveTab(platform) {
@@ -760,7 +832,7 @@
     link.dataset.sourceUrl = urlInput.value.trim();
     link.target = '_blank';
     link.rel = 'noopener';
-    link.textContent = 'Try with SnapVid';
+    link.textContent = 'If this does not work, try SnapVid';
     resultSub.append(' ', link);
   }
 
@@ -770,14 +842,27 @@
   }
 
   function renderMedia(items, galleryMode = items.length > 0 && items.every(item => item.type === 'image')) {
-    renderedMediaItems = items;
-    renderedMediaCount = galleryMode ? Math.min(mediaBatchSize, items.length) : items.length;
+    renderedMediaItems = items.map((item, index) => ({ ...item, id: item.id || `${item.downloads?.image || item.thumbnail || item.title}-${index}` }));
+    renderedMediaCount = galleryMode ? Math.min(mediaBatchSize, visibleMediaItems().length) : visibleMediaItems().length;
     renderMediaBatch(galleryMode);
+  }
+
+  function renderBatchSource(sourceIndex) {
+    batchSourceIndex = sourceIndex;
+    const source = batchSources[sourceIndex];
+    if (!source) return;
+    renderedMediaItems = source.items;
+    renderedMediaCount = Math.min(mediaBatchSize, visibleMediaItems().length);
+    resultTitle.textContent = `Batch ${sourceIndex + 1} of ${batchSources.length}: ${source.url}`;
+    resultSub.textContent = `${visibleMediaItems().length} image${visibleMediaItems().length === 1 ? '' : 's'} from this URL.`;
+    addSnapvidNotice(detectPlatform(source.url));
+    renderMediaBatch(true);
   }
 
   function renderMediaBatch(galleryMode) {
     mediaGrid.classList.toggle('gallery-mode', galleryMode);
-    const items = renderedMediaItems.slice(0, renderedMediaCount);
+    const visibleItems = visibleMediaItems();
+    const items = visibleItems.slice(0, renderedMediaCount);
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : 'video';
       const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
@@ -791,8 +876,29 @@
         : (tooLong ? '<div class="result-thumb"></div>' : `<video controls preload="metadata"${item.thumbnail ? ` poster="${escapeHtml(item.thumbnail)}"` : ''} src="${escapeHtml(item.downloads.video)}&preview=1"></video>`);
       const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
       const galleryTile = galleryMode && item.type === 'image' ? ' gallery-tile' : '';
-      return `<article class="media-item${galleryTile}">${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
-    }).join('') + (renderedMediaCount < renderedMediaItems.length ? `<button class="load-more-media" type="button">Load more images (${renderedMediaItems.length - renderedMediaCount} remaining)</button>` : '');
+      const hideButton = galleryTile ? `<button class="hide-image" type="button" data-hide-id="${escapeHtml(item.id)}" aria-label="Hide this image">Hide</button>` : '';
+      return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
+    }).join('') + (renderedMediaCount < visibleItems.length
+      ? `<button class="load-more-media" type="button">Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)</button>`
+      : batchMode && batchSourceIndex < batchSources.length - 1
+        ? '<button class="load-more-media" type="button">Jump to next</button>'
+        : '');
+  }
+
+  function closeGallery() {
+    galleryViewer.classList.remove('open');
+    galleryViewer.setAttribute('aria-hidden', 'true');
+  }
+
+  function addSnapvidNotice(platform = selectedPlatform) {
+    if (platform === 'Web') return;
+    const link = document.createElement('a');
+    link.className = 'external-download';
+    link.href = snapVidUrl(platform);
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'If this does not work, try SnapVid';
+    resultSub.append(' ', link);
   }
 
   function restoreResults(state) {
@@ -823,6 +929,7 @@
     if (!data || !Array.isArray(data.items)) throw new Error(data.error || 'The source returned an invalid response.');
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
     resultSub.textContent = `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found. Choose a resolution where available.`;
+    addSnapvidNotice(detectPlatform(value));
     renderMedia(data.items || []);
     fetchHint.textContent = 'Enjoy your media.';
     saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, source: data.source, items: data.items || [] });
@@ -847,7 +954,9 @@
       document.getElementById('fetch-hint').hidden = isReddit;
       resultCard.hidden = isReddit;
       mediaGrid.hidden = isReddit;
-      savedUrlSection.hidden = selectedPlatform !== 'Web';
+      const isWeb = selectedPlatform === 'Web';
+      savedUrlSection.hidden = !isWeb;
+      webToolsButton.classList.toggle('visible', isWeb);
       stepsWrap.innerHTML = data.steps.map((s, i) =>
         `<div class="step"><div class="step-num">${i+1}</div><p>${s}</p></div>`
       ).join('');
@@ -882,6 +991,36 @@
     }
   });
 
+  document.getElementById('batch-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const urls = document.getElementById('batch-input').value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
+    const status = document.getElementById('batch-status');
+    if (!urls.length) { status.textContent = 'Add at least one URL.'; return; }
+    status.textContent = `Searching ${urls.length} URL${urls.length === 1 ? '' : 's'}...`;
+    const sources = [];
+    const failures = [];
+    for (const value of urls) {
+      try {
+        new URL(value);
+        const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ url: value }) });
+        const data = await response.json();
+        if (!response.ok || !Array.isArray(data.items)) throw new Error(data.error || 'Could not resolve');
+        sources.push({ url: value, items: data.items.map(item => ({ ...item, title: `${detectPlatform(value)}: ${item.title}`, id: `${value}#${item.index}` })) });
+      } catch (error) { failures.push(`${value}: ${error.message || 'Could not resolve'}`); }
+    }
+    if (!sources.length) { status.textContent = failures.join(' | '); return; }
+    batchSources = sources;
+    batchMode = true;
+    resultCard.classList.add('show');
+    resultTitle.textContent = 'Batch media ready';
+    resultSub.textContent = `${sources.reduce((total, source) => total + source.items.length, 0)} item${sources.reduce((total, source) => total + source.items.length, 0) === 1 ? '' : 's'} found from ${sources.length} URL${sources.length === 1 ? '' : 's'}.`;
+    renderBatchSource(0);
+    saveState({ platform: selectedPlatform, url: urls.join('\n'), title: 'Batch media ready', source: 'batch', items: sources.flatMap(source => source.items) });
+    saveSectionState();
+    const totalItems = sources.reduce((total, source) => total + source.items.length, 0);
+    status.textContent = failures.length ? `${totalItems} found. ${failures.length} URL${failures.length === 1 ? '' : 's'} failed.` : `${totalItems} item${totalItems === 1 ? '' : 's'} ready.`;
+  });
+
   mediaGrid.addEventListener('change', e => {
     if (!e.target.matches('.resolution')) return;
     const state = readState() || {};
@@ -891,20 +1030,31 @@
     saveSectionState();
   });
   mediaGrid.addEventListener('click', e => {
+    const hideButton = e.target.closest('.hide-image');
+    if (hideButton) {
+      const item = renderedMediaItems.find(entry => entry.id === hideButton.dataset.hideId);
+      if (item) hideImage(item);
+      return;
+    }
     const loadMoreButton = e.target.closest('.load-more-media');
     if (loadMoreButton) {
-      renderedMediaCount = Math.min(renderedMediaCount + mediaBatchSize, renderedMediaItems.length);
-      renderMediaBatch(true);
+      const visibleItems = visibleMediaItems();
+      if (renderedMediaCount < visibleItems.length) {
+        renderedMediaCount = Math.min(renderedMediaCount + mediaBatchSize, visibleItems.length);
+        renderMediaBatch(true);
+      } else if (batchMode && batchSourceIndex < batchSources.length - 1) {
+        renderBatchSource(batchSourceIndex + 1);
+      }
       return;
     }
     const galleryImage = e.target.closest('.gallery-mode .gallery-tile img[data-gallery-src]');
     if (galleryImage) {
-      const images = [...mediaGrid.querySelectorAll('.gallery-mode .gallery-tile img[data-gallery-src]')];
-      galleryTrack.innerHTML = images.map(image => `<div class="gallery-slide"><img src="${escapeHtml(image.dataset.gallerySrc)}" alt=""></div>`).join('');
-      galleryIndex = images.indexOf(galleryImage);
+      const images = visibleMediaItems().filter(item => item.type === 'image');
+      galleryTrack.innerHTML = images.map(item => `<div class="gallery-slide"><img src="${escapeHtml(item.thumbnail)}" alt=""></div>`).join('');
+      galleryIndex = images.findIndex(item => item.id === galleryImage.closest('[data-media-id]')?.dataset.mediaId);
       galleryViewer.classList.add('open');
       galleryViewer.setAttribute('aria-hidden', 'false');
-      galleryTrack.scrollTo({ left: galleryTrack.clientWidth * galleryIndex });
+      galleryTrack.scrollTo({ left: galleryTrack.clientWidth * Math.max(0, galleryIndex), behavior: 'auto' });
       return;
     }
     const button = e.target.closest('.media-download');
@@ -937,6 +1087,28 @@
     savedUrlName.value = '';
     renderSavedUrls();
   });
+  document.getElementById('save-batch-btn').addEventListener('click', () => {
+    const urls = document.getElementById('batch-input').value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
+    if (!urls.length) return;
+    const name = savedUrlName.value.trim() || `Batch of ${urls.length} URLs`;
+    const batches = [{ name, urls }, ...readSavedUrls().filter(entry => JSON.stringify(entry.urls) !== JSON.stringify(urls))].slice(0, 10);
+    saveSavedUrls(batches);
+    savedUrlName.value = '';
+    renderSavedUrls();
+  });
+  webToolsButton.addEventListener('click', () => {
+    webToolsModal.classList.add('open');
+    webToolsModal.setAttribute('aria-hidden', 'false');
+    savedUrlName.focus();
+  });
+  function closeWebTools() {
+    webToolsModal.classList.remove('open');
+    webToolsModal.setAttribute('aria-hidden', 'true');
+  }
+  document.getElementById('web-tools-close').addEventListener('click', closeWebTools);
+  webToolsModal.addEventListener('click', event => {
+    if (event.target === webToolsModal) closeWebTools();
+  });
   savedUrlList.addEventListener('click', event => {
     const removeButton = event.target.closest('.saved-url-remove');
     if (removeButton) {
@@ -948,9 +1120,14 @@
     }
     const loadButton = event.target.closest('.saved-url-load');
     if (loadButton) {
-      urlInput.value = loadButton.dataset.url || '';
-      urlInput.focus();
-      document.getElementById('fetch-form').requestSubmit();
+      if (loadButton.dataset.batch === 'true') {
+        document.getElementById('batch-input').value = loadButton.dataset.url || '';
+        document.getElementById('batch-form').requestSubmit();
+      } else {
+        urlInput.value = loadButton.dataset.url || '';
+        urlInput.focus();
+        document.getElementById('fetch-form').requestSubmit();
+      }
     }
   });
   mediaGrid.addEventListener('click', e => {
@@ -963,10 +1140,7 @@
     window.open(target, '_blank', 'noopener');
   });
   urlInput.addEventListener('input', () => saveState({ platform: selectedPlatform, url: urlInput.value }));
-  document.getElementById('gallery-close').addEventListener('click', () => {
-    galleryViewer.classList.remove('open');
-    galleryViewer.setAttribute('aria-hidden', 'true');
-  });
+  document.getElementById('gallery-close').addEventListener('click', closeGallery);
   galleryViewer.addEventListener('click', event => {
     if (event.target === galleryViewer) document.getElementById('gallery-close').click();
   });
@@ -978,6 +1152,9 @@
     if (Math.abs(distance) < 40) return;
     galleryIndex = Math.max(0, Math.min(galleryTrack.children.length - 1, galleryIndex + (distance < 0 ? 1 : -1)));
     galleryTrack.scrollTo({ left: galleryTrack.clientWidth * galleryIndex, behavior: 'smooth' });
+  }, { passive: true });
+  galleryTrack.addEventListener('scroll', () => {
+    if (galleryTrack.clientWidth) galleryIndex = Math.round(galleryTrack.scrollLeft / galleryTrack.clientWidth);
   }, { passive: true });
 
   const savedState = readState();
