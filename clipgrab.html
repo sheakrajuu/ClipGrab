@@ -832,7 +832,9 @@
     renderedMediaCount = selectedPlatform === 'Web'
       ? Math.min(webWindowSize(sourceItems), visibleMediaItems().length)
       : Math.min(mediaBatchSize, visibleMediaItems().length);
-    resultTitle.textContent = `${batchName || 'Batch'} ${sourceIndex + 1} of ${batchSources.length}: ${source.url}`;
+    resultTitle.textContent = batchSources.length > 1
+      ? `URL ${sourceIndex + 1} of ${batchSources.length}`
+      : 'URL';
     const batchNavigation = `${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}`;
     if (source.loading) {
       resultSub.textContent = 'Finding media from this URL...';
