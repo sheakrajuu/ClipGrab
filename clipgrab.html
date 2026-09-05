@@ -194,6 +194,10 @@
   .web-tools-dialog-header h2{font-size:20px;}
   .web-tools-close{width:34px;height:34px;border:0;border-radius:50%;background:#fff;color:var(--bg);font-size:22px;line-height:1;cursor:pointer;}
   .web-tools-dialog .batch-section,.web-tools-dialog .saved-url-section{display:block;max-width:none;margin:14px 0 0;}
+  .media-type-picker{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px;}
+  .media-type-option{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:10px 12px;font:700 12px Inter,sans-serif;cursor:pointer;}
+  .media-type-option.active{background:var(--accent);border-color:var(--accent);color:var(--bg);}
+  #media-type-hint{grid-column:1 / -1;color:#8B8FA3;font-size:11px;margin:2px 0 0;}
 
   /* result card (hidden by default, shown after "download") */
   .result-card{
@@ -220,9 +224,10 @@
   }
   .result-body{flex:1;min-width:0;}
   .media-grid{display:grid;grid-template-columns:1fr;gap:16px;max-width:760px;margin:20px auto 0;}
-  .media-grid.gallery-mode{grid-template-columns:repeat(3,1fr);gap:8px;max-width:760px;}
+  .media-grid.gallery-mode{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;max-width:760px;}
   .media-item{background:#fff;color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:12px;}
-  .gallery-mode .gallery-tile{padding:0;border:0;overflow:hidden;cursor:pointer;aspect-ratio:1;background:#101316;position:relative;}
+  .gallery-mode .gallery-tile{padding:0;border:0;border-radius:6px;overflow:hidden;cursor:pointer;aspect-ratio:1;background:#fff;position:relative;}
+  .media-item img{background:#fff;}
   .media-item img,.media-item video{display:block;width:100%;max-height:520px;aspect-ratio:16 / 9;object-fit:contain;border-radius:8px;background:#101316;margin-bottom:12px;}
   .gallery-mode .gallery-tile img{height:100%;aspect-ratio:1;object-fit:contain;margin:0;border-radius:0;transition:transform .2s ease;}
   .gallery-mode .gallery-tile:hover img{transform:scale(1.04);}
@@ -245,6 +250,9 @@
   .gallery-slide{min-width:100%;height:100%;display:grid;place-items:center;scroll-snap-align:center;scroll-snap-stop:always;}
   .gallery-slide img{max-width:100%;max-height:100%;object-fit:contain;}
   .gallery-close{position:absolute;top:16px;right:18px;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#101316;font-size:25px;line-height:1;cursor:pointer;z-index:1;}
+  .video-viewer{position:fixed;inset:0;z-index:21;background:rgba(10,12,14,.96);display:none;align-items:center;justify-content:center;padding:clamp(18px,5vw,64px);}
+  .video-viewer.open{display:flex;}
+  .video-viewer video{width:min(1100px,100%);max-height:calc(100vh - 100px);background:#000;border-radius:8px;outline:none;}
   .media-item-body{min-width:0;flex:1}.media-item-title{font-weight:700;font-size:13px;overflow-wrap:anywhere;margin-bottom:8px;}
   .resolution{width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fff;font:12px Inter,sans-serif;margin-bottom:8px;}
   @media (max-width:600px){.batch-form{grid-template-columns:1fr;}.batch-form .batch-btn,.batch-form .save-url-btn{width:100%;}.batch-header{align-items:flex-start;flex-direction:column;gap:3px;}}
@@ -461,7 +469,7 @@
     .fetch-bar{flex-direction:column;border-radius:16px;}
     .fetch-bar button{margin-top:6px;}
     .media-grid{grid-template-columns:1fr;}
-    .media-grid.gallery-mode{grid-template-columns:repeat(3,1fr);}
+    .media-grid.gallery-mode{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;}
     .media-item img,.media-item video{max-height:420px;}
     .media-item-body{width:100%;}
     .media-download{width:100%;}
@@ -562,11 +570,15 @@
   const savedUrlName = document.getElementById('saved-url-name');
   const savedUrlList = document.getElementById('saved-url-list');
   const batchNameInput = document.getElementById('batch-name');
+  const mediaTypeOptions = document.querySelectorAll('.media-type-option');
+  const mediaTypeHint = document.getElementById('media-type-hint');
   const unhideImagesButton = document.getElementById('unhide-images-btn');
   const webToolsButton = document.getElementById('web-tools-btn');
   const webToolsModal = document.getElementById('web-tools-modal');
   const galleryViewer = document.getElementById('gallery-viewer');
   const galleryTrack = document.getElementById('gallery-track');
+  const videoViewer = document.getElementById('video-viewer');
+  const videoPlayer = document.getElementById('video-player');
   let galleryIndex = 0;
   let galleryTouchStartX = 0;
   let galleryImages = [];
@@ -581,6 +593,7 @@
   const mediaBatchSize = 10;
   const webImageWindowSize = 20;
   let selectedPlatform = 'TikTok';
+  let selectedWebMediaType = 'image';
   let requestCooldownUntil = 0;
   let requestCooldownTimer = null;
   const storageKey = 'clipgrab-download-state-v2';
@@ -654,7 +667,9 @@
     savedUrlList.innerHTML = readSavedUrls().map((entry, index) => {
       const batch = Array.isArray(entry.urls);
       const value = batch ? entry.urls.join('\n') : entry.url;
-      return `<div class="saved-url-item"><button class="saved-url-load" type="button" data-url="${escapeHtml(value)}" data-batch="${batch}" title="Open ${escapeHtml(entry.name)}">${escapeHtml(entry.name)}<span>${escapeHtml(batch ? `${entry.urls.length} URLs` : entry.url)}</span></button><button class="saved-url-remove" type="button" data-index="${index}" aria-label="Remove saved URL">&times;</button></div>`;
+      const type = savedMediaType(entry);
+      if (type !== selectedWebMediaType) return '';
+      return `<div class="saved-url-item"><button class="saved-url-load" type="button" data-url="${escapeHtml(value)}" data-batch="${batch}" data-media-type="${type}" title="Open ${escapeHtml(entry.name)}">${escapeHtml(entry.name)}<span>${escapeHtml(batch ? `${entry.urls.length} URLs` : entry.url)} · ${type}s</span></button><button class="saved-url-remove" type="button" data-index="${index}" aria-label="Remove saved URL">&times;</button></div>`;
     }).join('');
   }
 
@@ -676,19 +691,39 @@
     return String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
   }
 
+  function setWebMediaType(type) {
+    selectedWebMediaType = type === 'video' ? 'video' : 'image';
+    mediaTypeOptions.forEach(option => {
+      const active = option.dataset.mediaType === selectedWebMediaType;
+      option.classList.toggle('active', active);
+      option.setAttribute('aria-pressed', String(active));
+    });
+    mediaTypeHint.textContent = selectedWebMediaType === 'video'
+      ? 'Video mode checks video sources and skips image discovery.'
+      : 'Image mode checks image sources and skips video discovery.';
+    renderSavedUrls();
+  }
+
+  function savedMediaType(entry) {
+    if (entry.mediaType === 'video') return 'video';
+    if (entry.mediaType === 'image') return 'image';
+    const value = Array.isArray(entry.urls) ? entry.urls.join('\n') : entry.url || '';
+    return /\.(?:mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i.test(value) ? 'video' : 'image';
+  }
+
   function readWebResultsCache() {
     try { return JSON.parse(localStorage.getItem(webResultsCacheKey) || '{}'); } catch { return {}; }
   }
 
-  function getCachedWebResult(url) {
-    const entry = readWebResultsCache()[url];
+  function getCachedWebResult(url, mediaType = selectedWebMediaType) {
+    const entry = readWebResultsCache()[`${mediaType}:${url}`];
     return entry && entry.data && Date.now() - entry.savedAt < 60 * 60 * 1000 ? entry.data : null;
   }
 
-  function cacheWebResult(url, data) {
+  function cacheWebResult(url, data, mediaType = selectedWebMediaType) {
     try {
       const cache = readWebResultsCache();
-      cache[url] = { savedAt: Date.now(), data };
+      cache[`${mediaType}:${url}`] = { savedAt: Date.now(), data };
       const recentEntries = Object.entries(cache).sort(([, first], [, second]) => second.savedAt - first.savedAt).slice(0, 10);
       localStorage.setItem(webResultsCacheKey, JSON.stringify(Object.fromEntries(recentEntries)));
     } catch {}
@@ -716,9 +751,11 @@
     if (remaining) throw new Error(`Please wait ${remaining} seconds before fetching again.`);
   }
 
-  async function fetchMediaRequest(url) {
+  async function fetchMediaRequest(url, mediaType = null) {
     assertRequestAllowed();
-    const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ url }) });
+    const body = { url };
+    if (selectedPlatform === 'Web' && mediaType) body.mediaType = mediaType;
+    const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
     if (response.status === 429) {
       const retryAfter = Number(response.headers.get('Retry-After')) || 60;
       startRequestCooldown(retryAfter);
@@ -752,11 +789,15 @@
     window.location.assign(target);
   }
 
+  function webWindowSize(items) {
+    return items.some(item => item.type === 'video') ? 1 : webImageWindowSize;
+  }
+
   function renderMedia(items, galleryMode = items.length > 0 && items.every(item => item.type === 'image')) {
     renderedMediaItems = items.map((item, index) => ({ ...item, id: item.id || `${item.downloads?.image || item.thumbnail || item.title}-${index}` }));
     renderedMediaStart = 0;
-    renderedMediaCount = selectedPlatform === 'Web' && galleryMode
-      ? Math.min(webImageWindowSize, visibleMediaItems().length)
+    renderedMediaCount = selectedPlatform === 'Web'
+      ? Math.min(webWindowSize(renderedMediaItems), visibleMediaItems().length)
       : galleryMode ? Math.min(mediaBatchSize, visibleMediaItems().length) : visibleMediaItems().length;
     renderMediaBatch(galleryMode);
   }
@@ -766,26 +807,29 @@
     const source = batchSources[sourceIndex];
     if (!source) return;
     urlInput.value = source.url;
-    renderedMediaItems = source.items || [];
+    const sourceItems = source.items || [];
+    renderedMediaItems = sourceItems;
     renderedMediaStart = 0;
+    const galleryMode = sourceItems.length > 0 && sourceItems.every(item => item.type === 'image');
     renderedMediaCount = selectedPlatform === 'Web'
-      ? Math.min(webImageWindowSize, visibleMediaItems().length)
+      ? Math.min(webWindowSize(sourceItems), visibleMediaItems().length)
       : Math.min(mediaBatchSize, visibleMediaItems().length);
     resultTitle.textContent = `${batchName || 'Batch'} ${sourceIndex + 1} of ${batchSources.length}: ${source.url}`;
     const batchNavigation = `${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}`;
     if (source.loading) {
-      resultSub.textContent = 'Finding images from this URL...';
+      resultSub.textContent = 'Finding media from this URL...';
       mediaGrid.innerHTML = batchNavigation ? `<div class="batch-navigation">${batchNavigation}</div>` : '';
       return;
     }
     if (source.error || !source.items?.length) {
-      resultSub.textContent = source.error || 'No images were found at this URL.';
+      resultSub.textContent = source.error || 'No media was found at this URL.';
       mediaGrid.innerHTML = `<button class="load-more-media fetch-again" type="button" data-fetch-again="true">Fetch again</button>${batchNavigation ? `<div class="batch-navigation">${batchNavigation}</div>` : ''}`;
       return;
     }
-    resultSub.textContent = `${visibleMediaItems().length} image${visibleMediaItems().length === 1 ? '' : 's'} from this URL.`;
+    const mediaLabel = galleryMode ? 'image' : 'video';
+    resultSub.textContent = `${visibleMediaItems().length} ${mediaLabel}${visibleMediaItems().length === 1 ? '' : 's'} from this URL.`;
     addSnapvidNotice(detectPlatform(source.url));
-    renderMediaBatch(true);
+    renderMediaBatch(galleryMode);
   }
 
   async function fetchBatchSource(sourceIndex, force = false) {
@@ -799,13 +843,13 @@
     source.error = '';
     renderBatchSource(sourceIndex);
     try {
-      let data = selectedPlatform === 'Web' && !force ? getCachedWebResult(source.url) : null;
+      let data = selectedPlatform === 'Web' && !force ? getCachedWebResult(source.url, selectedWebMediaType) : null;
       if (!data) {
-        const response = await fetchMediaRequest(source.url);
+        const response = await fetchMediaRequest(source.url, selectedPlatform === 'Web' ? selectedWebMediaType : null);
         const responseText = await response.text();
         try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
         if (!response.ok || !Array.isArray(data.items)) throw new Error(data.error || 'Could not resolve this URL.');
-        if (selectedPlatform === 'Web') cacheWebResult(source.url, data);
+        if (selectedPlatform === 'Web') cacheWebResult(source.url, data, selectedWebMediaType);
       }
       if (!Array.isArray(data.items)) throw new Error(data.error || 'Could not resolve this URL.');
       if (requestToken !== batchRequestToken) return;
@@ -829,11 +873,13 @@
     const items = visibleItems.slice(renderedMediaStart, renderedMediaStart + renderedMediaCount);
     const hasMoreItems = renderedMediaStart + renderedMediaCount < visibleItems.length;
     const hasPreviousItems = selectedPlatform === 'Web' && renderedMediaStart > 0;
+    const webWindow = webWindowSize(visibleItems);
+    const isWebVideo = selectedPlatform === 'Web' && webWindow === 1;
     const fetchAgain = selectedPlatform === 'Web' && (!batchMode || batchSourceIndex >= 0)
       ? '<button class="load-more-media fetch-again" type="button" data-fetch-again="true">Fetch again</button>'
       : '';
     const previousWindow = hasPreviousItems
-      ? '<button class="load-more-media" type="button" data-web-previous-window="true">Show previous images</button>'
+      ? `<button class="load-more-media" type="button" data-web-previous-window="true">Show previous ${isWebVideo ? 'video' : 'images'}</button>`
       : '';
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : 'video';
@@ -851,7 +897,7 @@
       const hideButton = galleryTile ? `<button class="hide-image" type="button" data-hide-id="${escapeHtml(item.id)}" aria-label="Hide this image">Hide</button>` : '';
       return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : resolutions}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
     }).join('') + previousWindow + (hasMoreItems
-      ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">${selectedPlatform === 'Web' ? `Load next 10 images (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)` : `Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)`}</button>`
+      ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">${selectedPlatform === 'Web' ? `Load next ${isWebVideo ? 'video' : '10 images'} (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)` : `Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)`}</button>`
       : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
         ? `<div class="batch-navigation">${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}</div>`
         : '') + fetchAgain;
@@ -860,6 +906,24 @@
   function closeGallery() {
     galleryViewer.classList.remove('open');
     galleryViewer.setAttribute('aria-hidden', 'true');
+  }
+
+  function closeVideoViewer() {
+    videoPlayer.pause();
+    videoPlayer.removeAttribute('src');
+    videoPlayer.load();
+    videoViewer.classList.remove('open');
+    videoViewer.setAttribute('aria-hidden', 'true');
+  }
+
+  function openVideoViewer(video) {
+    const source = video.currentSrc || video.src;
+    if (!source) return;
+    videoPlayer.src = source;
+    videoPlayer.poster = video.poster || '';
+    videoViewer.classList.add('open');
+    videoViewer.setAttribute('aria-hidden', 'false');
+    videoPlayer.play().catch(() => {});
   }
 
   function updateGalleryWindow() {
@@ -912,13 +976,13 @@
     resultTitle.textContent = 'Finding media...';
     resultSub.textContent = 'Checking the source and available formats.';
     mediaGrid.innerHTML = '';
-    let data = selectedPlatform === 'Web' && !force ? getCachedWebResult(value) : null;
+    let data = selectedPlatform === 'Web' && !force ? getCachedWebResult(value, selectedWebMediaType) : null;
     if (!data) {
-      const response = await fetchMediaRequest(value);
+      const response = await fetchMediaRequest(value, selectedPlatform === 'Web' ? selectedWebMediaType : null);
       const responseText = await response.text();
       try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
       if (!response.ok) throw new Error(data.error || 'The source could not be resolved.');
-      if (selectedPlatform === 'Web') cacheWebResult(value, data);
+      if (selectedPlatform === 'Web') cacheWebResult(value, data, selectedWebMediaType);
     }
     if (!data || !Array.isArray(data.items)) throw new Error(data.error || 'The source returned an invalid response.');
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
@@ -1046,16 +1110,16 @@
       }
       const visibleItems = visibleMediaItems();
       if (loadMoreButton.dataset.webPreviousWindow === 'true') {
-        renderedMediaStart = Math.max(0, renderedMediaStart - mediaBatchSize);
+        renderedMediaStart = Math.max(0, renderedMediaStart - webWindowSize(visibleItems));
         renderedMediaCount = renderedMediaStart === 0
-          ? Math.min(webImageWindowSize, visibleItems.length)
-          : Math.min(mediaBatchSize, visibleItems.length - renderedMediaStart);
+          ? Math.min(webWindowSize(visibleItems), visibleItems.length)
+          : Math.min(webWindowSize(visibleItems), visibleItems.length - renderedMediaStart);
         renderMediaBatch(true);
         return;
       }
       if (loadMoreButton.dataset.webNextWindow === 'true') {
         renderedMediaStart += renderedMediaCount;
-        renderedMediaCount = Math.min(mediaBatchSize, visibleItems.length - renderedMediaStart);
+        renderedMediaCount = Math.min(webWindowSize(visibleItems), visibleItems.length - renderedMediaStart);
         renderMediaBatch(true);
         return;
       }
@@ -1075,6 +1139,11 @@
       galleryViewer.classList.add('open');
       galleryViewer.setAttribute('aria-hidden', 'false');
       galleryTrack.scrollTo({ left: galleryTrack.clientWidth * galleryIndex, behavior: 'auto' });
+      return;
+    }
+    const mediaVideo = e.target.closest('.media-item video');
+    if (mediaVideo) {
+      openVideoViewer(mediaVideo);
       return;
     }
     const button = e.target.closest('.media-download');
@@ -1097,12 +1166,14 @@
   document.getElementById('paste-btn').addEventListener('click', async () => {
     try { urlInput.value = await navigator.clipboard.readText(); urlInput.focus(); } catch { urlInput.focus(); }
   });
+  mediaTypeOptions.forEach(option => option.addEventListener('click', () => setWebMediaType(option.dataset.mediaType)));
+  setWebMediaType('image');
   document.getElementById('save-url-btn').addEventListener('click', () => {
     if (selectedPlatform !== 'Web') return;
     const value = urlInput.value.trim();
     if (!value) return;
     const name = savedUrlName.value.trim() || (() => { try { return new URL(value).hostname; } catch { return 'Saved URL'; } })();
-    const urls = [{ name, url: value }, ...readSavedUrls().filter(entry => entry.url !== value)].slice(0, 10);
+    const urls = [{ name, url: value, mediaType: selectedWebMediaType }, ...readSavedUrls().filter(entry => entry.url !== value)].slice(0, 10);
     saveSavedUrls(urls);
     savedUrlName.value = '';
     renderSavedUrls();
@@ -1111,7 +1182,7 @@
     const urls = document.getElementById('batch-input').value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
     if (!urls.length) return;
     const name = savedUrlName.value.trim() || batchNameInput.value.trim() || `Batch of ${urls.length} URLs`;
-    const batches = [{ name, urls }, ...readSavedUrls().filter(entry => JSON.stringify(entry.urls) !== JSON.stringify(urls))].slice(0, 10);
+    const batches = [{ name, urls, mediaType: selectedWebMediaType }, ...readSavedUrls().filter(entry => JSON.stringify(entry.urls) !== JSON.stringify(urls))].slice(0, 10);
     saveSavedUrls(batches);
     savedUrlName.value = '';
     renderSavedUrls();
@@ -1155,6 +1226,7 @@
     }
     const loadButton = event.target.closest('.saved-url-load');
     if (loadButton) {
+      setWebMediaType(loadButton.dataset.mediaType);
       if (loadButton.dataset.batch === 'true') {
         document.getElementById('batch-input').value = loadButton.dataset.url || '';
         batchNameInput.value = loadButton.textContent.replace(/\s+\d+ URLs$/, '').trim();
@@ -1177,6 +1249,16 @@
   });
   urlInput.addEventListener('input', () => saveState({ platform: selectedPlatform, url: urlInput.value }));
   document.getElementById('gallery-close').addEventListener('click', closeGallery);
+  document.getElementById('video-close').addEventListener('click', closeVideoViewer);
+  videoViewer.addEventListener('click', event => {
+    if (event.target === videoViewer) closeVideoViewer();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      if (videoViewer.classList.contains('open')) closeVideoViewer();
+      else if (galleryViewer.classList.contains('open')) closeGallery();
+    }
+  });
   galleryViewer.addEventListener('click', event => {
     if (event.target === galleryViewer) document.getElementById('gallery-close').click();
   });

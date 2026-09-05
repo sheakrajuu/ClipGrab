@@ -26,6 +26,7 @@ Render runs the Node/Express server, so the page partials and `/api/media` backe
 
 ```powershell
 winget install yt-dlp.yt-dlp
+py -m pip install curl-cffi
 ```
 
 Restart the terminal after installation so `yt-dlp` is available on `PATH`.

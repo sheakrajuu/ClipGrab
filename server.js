@@ -163,10 +163,11 @@ function extractorArgs(sourceUrl) {
   return ['--dump-single-json', '--yes-playlist', '--no-warnings', '--socket-timeout', '20', '--retries', '2', '--fragment-retries', '2', '--concurrent-fragments', '4', sourceUrl];
 }
 
-function downloadUrl(sourceUrl, format, index, height) {
+function downloadUrl(sourceUrl, format, index, height, refererUrl) {
   const params = new URLSearchParams({ url: sourceUrl, format });
   if (index) params.set('index', String(index));
   if (height) params.set('height', String(height));
+  if (refererUrl) params.set('referer', refererUrl);
   return '/api/download?' + params.toString();
 }
 
@@ -198,7 +199,7 @@ function itemFromInfo(info, sourceUrl, index) {
   const originalImageUrl = image && /^https?:/i.test(info.url || '') ? info.url : sourceUrl;
   const downloads = {
     video: downloadUrl(sourceUrl, 'video', index),
-    image: downloadUrl(originalImageUrl, 'image', index)
+    image: downloadUrl(originalImageUrl, 'image', index, null, sourceUrl)
   };
   return {
     index,
@@ -229,9 +230,9 @@ function publicSourceError(error) {
 function isInstagramResizedPreview(value) {
   try {
     const parsed = new URL(value);
-    return /(^|\.)instagram\.com$/i.test(parsed.hostname) || /(^|\.)cdninstagram\.com$/i.test(parsed.hostname)
-      ? /(?:^|[_-])s\d+x\d+(?:[_-]|$)/i.test(parsed.search) || /(?:^|&)stp=[^&]*s\d+x\d+/i.test(parsed.search)
-      : false;
+    if (!/(^|\.)instagram\.com$|(^|\.)cdninstagram\.com$/i.test(parsed.hostname)) return false;
+    const location = `${parsed.pathname}${parsed.search}`;
+    return /(?:^|[/_-])s\d+x\d+(?:[/_-]|$)/i.test(location) || /(?:^|&)stp=[^&]*s\d+x\d+/i.test(parsed.search);
   } catch {
     return false;
   }
@@ -290,6 +291,7 @@ async function extractPageVideos(parsed) {
 app.post('/api/media', async (req, res) => {
   try {
     const parsed = parseUrl(req.body.url);
+    const requestedMediaType = req.body.mediaType === 'image' || req.body.mediaType === 'video' ? req.body.mediaType : null;
     logStage('media request', parsed);
     await rejectPrivateHost(parsed);
     const cacheKey = parsed.toString();
@@ -303,13 +305,21 @@ app.post('/api/media', async (req, res) => {
       return res.json(data);
     }
     if (!isSocialMediaUrl(parsed)) {
-      const imageUrls = await extractPageImages(parsed).catch(() => []);
-      if (imageUrls.length) {
-        logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
-        const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl, parsed.toString()), type: 'image', resolutions: [], downloads: { image: downloadUrl(imageUrl, 'image') } })) };
+      const videoUrls = requestedMediaType === 'image' ? [] : await extractPageVideos(parsed).catch(() => []);
+      if (videoUrls.length) {
+        logStage('video extraction succeeded', parsed, `${videoUrls.length} candidates`);
+        const data = { title: 'Videos found', source: 'web-videos', count: videoUrls.length, items: videoUrls.map((videoUrl, position) => ({ index: position + 1, title: `Video ${position + 1}`, thumbnail: '', type: 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { video: downloadUrl(videoUrl, 'video') } })) };
         metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
         return res.json(data);
       }
+      const imageUrls = requestedMediaType === 'video' ? [] : await extractPageImages(parsed).catch(() => []);
+      if (imageUrls.length) {
+        logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
+        const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl, parsed.toString()), type: 'image', resolutions: [], downloads: { image: downloadUrl(imageUrl, 'image', null, null, parsed.toString()) } })) };
+        metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+        return res.json(data);
+      }
+      if (requestedMediaType === 'image') throw new Error('No images were found at this URL.');
     }
     try {
       const raw = await runYtDlp(extractorArgs(cacheKey));
@@ -323,12 +333,21 @@ app.post('/api/media', async (req, res) => {
       return res.json(data);
     } catch (extractorError) {
       if (!await isDirectMedia(parsed)) {
-        const imageUrls = await extractPageImages(parsed).catch(() => []);
-        if (imageUrls.length) {
-          logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
-          const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl, parsed.toString()), type: 'image', resolutions: [], downloads: { image: isInstagramResizedPreview(imageUrl) ? '' : downloadUrl(imageUrl, 'image') } })) };
-          metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
-          return res.json(data);
+        if (!isSocialMediaUrl(parsed)) {
+          const videoUrls = requestedMediaType === 'image' ? [] : await extractPageVideos(parsed).catch(() => []);
+          if (videoUrls.length) {
+            logStage('video extraction succeeded', parsed, `${videoUrls.length} candidates`);
+            const data = { title: 'Videos found', source: 'web-videos', count: videoUrls.length, items: videoUrls.map((videoUrl, position) => ({ index: position + 1, title: `Video ${position + 1}`, thumbnail: '', type: 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { video: downloadUrl(videoUrl, 'video') } })) };
+            metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+            return res.json(data);
+          }
+          const imageUrls = requestedMediaType === 'video' ? [] : await extractPageImages(parsed).catch(() => []);
+          if (imageUrls.length) {
+            logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
+            const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl, parsed.toString()), type: 'image', resolutions: [], downloads: { image: isInstagramResizedPreview(imageUrl) ? '' : downloadUrl(imageUrl, 'image', null, null, parsed.toString()) } })) };
+            metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+            return res.json(data);
+          }
         }
         const videoUrls = await extractPageVideos(parsed).catch(() => []);
         if (videoUrls.length) {
@@ -356,7 +375,9 @@ app.post('/api/media', async (req, res) => {
 app.get('/api/download', async (req, res) => {
   try {
     const parsed = parseUrl(req.query.url);
+    const referer = req.query.referer ? parseUrl(req.query.referer) : null;
     await rejectPrivateHost(parsed);
+    if (referer) await rejectPrivateHost(referer);
     const format = ['audio', 'image', 'video'].includes(req.query.format) ? req.query.format : 'video';
     logStage('download request', parsed, format);
     const directMedia = format === 'image' ? true : await isDirectMedia(parsed);
@@ -369,7 +390,9 @@ app.get('/api/download', async (req, res) => {
       }
     }
     if (directMedia) {
-      const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(upstreamTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+      const headers = { 'User-Agent': 'ClipGrab/1.0' };
+      if (referer) headers.Referer = referer.toString();
+      const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(upstreamTimeoutMs), headers });
       if (!upstream.ok || !upstream.body) throw new Error('The media file could not be fetched.');
       const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
       if (!(format === 'image' ? /^image\// : /^video\//).test(contentType)) throw new Error('The source did not return a valid media file.');
@@ -445,13 +468,14 @@ app.get('/api/preview', previewRateLimit, async (req, res) => {
       return res.send(cached.body);
     }
     previewCache.delete(cacheKey);
-    const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36', Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' };
+    const headers = { 'User-Agent': 'ClipGrab/1.0', Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' };
     if (referer) headers.Referer = referer.toString();
     let upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers });
     let contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     if (!upstream.ok || !upstream.body || !/^image\//.test(contentType)) {
       if (upstream.body) upstream.body.cancel().catch(() => {});
       delete headers.Referer;
+      headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36';
       upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers });
       contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     }
