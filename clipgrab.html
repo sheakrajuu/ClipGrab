@@ -598,6 +598,7 @@
   let galleryTouchStartX = 0;
   let galleryImages = [];
   let viewerScrollY = 0;
+  let webToolsScrollY = 0;
   let renderedMediaItems = [];
   let renderedMediaStart = 0;
   let renderedMediaCount = 0;
@@ -1230,6 +1231,8 @@
     if (renderedMediaItems.length) renderMediaBatch(batchMode || renderedMediaItems.every(item => item.type === 'image'));
   });
   webToolsButton.addEventListener('click', () => {
+    webToolsScrollY = window.scrollY;
+    document.body.classList.add('viewer-open');
     webToolsModal.classList.add('open');
     webToolsModal.setAttribute('aria-hidden', 'false');
     savedUrlName.focus();
@@ -1237,6 +1240,10 @@
   function closeWebTools() {
     webToolsModal.classList.remove('open');
     webToolsModal.setAttribute('aria-hidden', 'true');
+    if (!videoViewer.classList.contains('open') && !galleryViewer.classList.contains('open')) {
+      document.body.classList.remove('viewer-open');
+      window.scrollTo(0, webToolsScrollY);
+    }
   }
   document.getElementById('web-tools-close').addEventListener('click', closeWebTools);
   webToolsModal.addEventListener('click', event => {
