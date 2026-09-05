@@ -170,6 +170,8 @@
   .saved-url-remove{border:0;background:transparent;color:#8B8FA3;font-size:17px;line-height:1;cursor:pointer;padding:0 2px;}
   .saved-url-remove:hover{color:#fff;}
   .batch-section{max-width:640px;margin:18px auto 0;text-align:left;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;}
+  .batch-toggle{display:block;width:100%;margin:14px 0 0;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:9px 12px;font:600 12px Inter,sans-serif;cursor:pointer;text-align:left;}
+  .batch-toggle:hover{border-color:var(--accent);color:var(--accent);}
   .batch-header{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#fff;font-size:13px;font-weight:600;margin-bottom:8px;}
   .batch-header span{color:#8B8FA3;font-size:11px;font-weight:400;}
   .batch-name-tools{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
@@ -585,6 +587,8 @@
   const savedUrlSection = document.getElementById('saved-url-section');
   const savedUrlName = document.getElementById('saved-url-name');
   const savedUrlList = document.getElementById('saved-url-list');
+  const batchSection = document.getElementById('batch-section');
+  const batchToggle = document.getElementById('batch-toggle');
   const batchNameInput = document.getElementById('batch-name');
   const mediaTypeOptions = document.querySelectorAll('.media-type-option');
   const mediaTypeHint = document.getElementById('media-type-hint');
@@ -1198,6 +1202,12 @@
     try { urlInput.value = await navigator.clipboard.readText(); urlInput.focus(); } catch { urlInput.focus(); }
   });
   mediaTypeOptions.forEach(option => option.addEventListener('click', () => setWebMediaType(option.dataset.mediaType)));
+  batchToggle.addEventListener('click', () => {
+    batchSection.hidden = !batchSection.hidden;
+    batchToggle.setAttribute('aria-expanded', String(!batchSection.hidden));
+    batchToggle.textContent = batchSection.hidden ? 'Add multiple URLs' : 'Hide multiple URL search';
+    if (!batchSection.hidden) document.getElementById('batch-input').focus();
+  });
   setWebMediaType('image');
   document.getElementById('save-url-btn').addEventListener('click', () => {
     if (selectedPlatform !== 'Web') return;
