@@ -6,7 +6,13 @@
       <button class="media-type-option" type="button" data-media-type="video" aria-pressed="false">Video URLs</button>
       <span id="media-type-hint">Image mode skips video discovery to reduce server work.</span>
     </div>
-    <section class="batch-section" aria-label="Batch URL search">
+    <section class="saved-url-section" id="saved-url-section" aria-label="Saved URLs">
+      <div class="saved-url-header"><span>Save this URL</span></div>
+      <div class="saved-url-form"><input type="text" id="saved-url-name" placeholder="Optional name" maxlength="60" aria-label="Optional name for this URL"><button class="save-url-btn" id="save-url-btn" type="button">Save URL</button></div>
+      <div class="saved-url-list" id="saved-url-list"></div>
+    </section>
+    <button class="batch-toggle" id="batch-toggle" type="button" aria-expanded="false">Add multiple URLs</button>
+    <section class="batch-section" id="batch-section" aria-label="Batch URL search" hidden>
       <div class="batch-header">Batch search <span>Choose Image URLs or Video URLs, then add one URL per line or separated by commas.</span></div>
       <div class="batch-name-tools"><input class="batch-name" id="batch-name" type="text" maxlength="60" placeholder="Name this batch" aria-label="Batch name"><button class="batch-name-save" id="rename-batch-btn" type="button">Rename batch</button></div>
       <form class="batch-form" id="batch-form">
@@ -15,11 +21,6 @@
         <button class="save-url-btn" id="save-batch-btn" type="button">Save batch</button>
       </form>
       <div class="batch-status" id="batch-status" aria-live="polite"></div>
-    </section>
-    <section class="saved-url-section" id="saved-url-section" aria-label="Saved URLs">
-      <div class="saved-url-header"><span>Saved URLs</span></div>
-      <div class="saved-url-form"><input type="text" id="saved-url-name" placeholder="Name this URL" maxlength="60"><button class="save-url-btn" id="save-url-btn" type="button">Save current URL</button></div>
-      <div class="saved-url-list" id="saved-url-list"></div>
     </section>
   </div>
 </div>
