@@ -1091,6 +1091,7 @@
     status.textContent = `${urls.length} URL${urls.length === 1 ? '' : 's'} queued. Fetching the first one...`;
     saveState({ platform: selectedPlatform, url: urls.join('\n'), title: batchName, source: 'batch', items: [] });
     saveSectionState();
+    closeWebTools();
     await fetchBatchSource(0);
     const source = batchSources[0];
     status.textContent = source.error ? `First URL failed: ${source.error}` : `${source.items.length} item${source.items.length === 1 ? '' : 's'} ready. Other URLs load when selected.`;

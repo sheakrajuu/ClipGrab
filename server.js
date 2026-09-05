@@ -79,6 +79,7 @@ app.use((req, res, next) => {
   if (req.path === '/' || req.path === '/clipgrab.html') return res.type('html').send(renderClipgrabPage());
   next();
 });
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/favicon.svg', (req, res) => res.sendFile(path.join(__dirname, 'favicon.svg')));
 
 function parseUrl(value) {

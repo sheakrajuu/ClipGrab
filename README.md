@@ -42,5 +42,7 @@ Open http://localhost:3000.
 
 ## API
 
+- `GET /health` returns the service health status used by Render.
+
 - `POST /api/media` with `{ "url": "https://..." }` returns media metadata and download format URLs.
 - `GET /api/download?url=...&format=video` streams a video download.
