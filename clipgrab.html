@@ -253,9 +253,24 @@
   .video-viewer{position:fixed;inset:0;z-index:21;background:rgba(10,12,14,.96);display:none;align-items:center;justify-content:center;padding:clamp(18px,5vw,64px);}
   .video-viewer.open{display:flex;}
   .video-viewer video{width:min(1100px,100%);max-height:calc(100vh - 100px);background:#000;border-radius:8px;outline:none;}
+  body.viewer-open{overflow:hidden;}
   .media-item-body{min-width:0;flex:1}.media-item-title{font-weight:700;font-size:13px;overflow-wrap:anywhere;margin-bottom:8px;}
   .resolution{width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fff;font:12px Inter,sans-serif;margin-bottom:8px;}
-  @media (max-width:600px){.batch-form{grid-template-columns:1fr;}.batch-form .batch-btn,.batch-form .save-url-btn{width:100%;}.batch-header{align-items:flex-start;flex-direction:column;gap:3px;}}
+  @media (max-width:600px){
+    .web-tools-modal{padding:12px;}
+    .web-tools-dialog{padding:14px;max-height:calc(100vh - 24px);}
+    .web-tools-dialog-header{align-items:flex-start;}
+    .web-tools-dialog-header h2{font-size:18px;}
+    .batch-form{grid-template-columns:1fr;}
+    .batch-form .batch-btn,.batch-form .save-url-btn{width:100%;}
+    .batch-header{align-items:flex-start;flex-direction:column;gap:3px;}
+    .batch-header span{line-height:1.35;}
+    .batch-name-tools{align-items:stretch;flex-direction:column;}
+    .batch-name{width:100%;}
+    .batch-name-save{width:100%;}
+    .media-type-picker{gap:5px;}
+    #media-type-hint{line-height:1.35;}
+  }
   .web-download{max-width:1080px;margin:56px auto 0;padding:0 24px;position:relative;z-index:3;}.web-download-inner{background:#1c2421;color:#fff;border-radius:var(--radius);padding:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}.web-download h2{margin:0 0 6px;font-size:24px}.web-download p{color:#b9c1b8;margin:0;font-size:14px;max-width:570px}.web-cta{display:inline-block;background:var(--accent);color:var(--bg);border-radius:7px;padding:11px 15px;font:700 13px Inter,sans-serif;white-space:nowrap}
   .reddit-coming-soon{display:flex;flex-direction:column;align-items:center;gap:12px;max-width:640px;margin:0 auto;padding:24px;background:#1c2421;color:#fff;border-radius:var(--radius);text-align:center;}
   .reddit-coming-soon strong{font-family:'Space Grotesk',sans-serif;font-size:20px;}
@@ -499,7 +514,7 @@
       placeholder: "Paste a TikTok link here",
       steps: [
         "Open the app, tap <b>Share</b>, then <b>Copy Link</b> on the video you want.",
-        "Come back here, paste the link into the box above, and hit <b>Download</b>.",
+        "Come back here, paste the link into the box above, and select <b>Find media</b>.",
         "Choose <b>MP4</b> or <b>MP3</b> and save it straight to your device."
       ]
     },
@@ -509,7 +524,7 @@
       placeholder: "Paste Instagram link here",
       steps: [
         "Tap the <b>···</b> menu on the post, then <b>Copy Link</b>.",
-        "Paste the link into the box above and hit <b>Download</b>.",
+        "Paste the link into the box above and select <b>Find media</b>.",
         "Choose <b>Photo</b> or <b>Video</b> to save it to your device."
       ]
     },
@@ -519,7 +534,7 @@
       placeholder: "Paste Facebook video link here",
       steps: [
         "Tap the <b>···</b> menu on the video, then <b>Copy Link</b>.",
-        "Paste the link into the box above and hit <b>Download</b>.",
+        "Paste the link into the box above and select <b>Find media</b>.",
         "Pick <b>MP4</b> or <b>MP3</b> and wait for it to save."
       ]
     },
@@ -529,7 +544,7 @@
       placeholder: "Paste Twitter / X link here",
       steps: [
         "Tap <b>Share</b> on the post, then <b>Copy Link</b>.",
-        "Paste the link into the box above and hit <b>Download</b>.",
+        "Paste the link into the box above and select <b>Find media</b>.",
         "Choose <b>MP4</b> or <b>MP3</b> to finish saving."
       ]
     },
@@ -582,6 +597,7 @@
   let galleryIndex = 0;
   let galleryTouchStartX = 0;
   let galleryImages = [];
+  let viewerScrollY = 0;
   let renderedMediaItems = [];
   let renderedMediaStart = 0;
   let renderedMediaCount = 0;
@@ -906,6 +922,10 @@
   function closeGallery() {
     galleryViewer.classList.remove('open');
     galleryViewer.setAttribute('aria-hidden', 'true');
+    if (!videoViewer.classList.contains('open')) {
+      document.body.classList.remove('viewer-open');
+      window.scrollTo(0, viewerScrollY);
+    }
   }
 
   function closeVideoViewer() {
@@ -914,11 +934,15 @@
     videoPlayer.load();
     videoViewer.classList.remove('open');
     videoViewer.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('viewer-open');
+    window.scrollTo(0, viewerScrollY);
   }
 
   function openVideoViewer(video) {
     const source = video.currentSrc || video.src;
     if (!source) return;
+    viewerScrollY = window.scrollY;
+    document.body.classList.add('viewer-open');
     videoPlayer.src = source;
     videoPlayer.poster = video.poster || '';
     videoViewer.classList.add('open');
@@ -1138,6 +1162,8 @@
       updateGalleryWindow();
       galleryViewer.classList.add('open');
       galleryViewer.setAttribute('aria-hidden', 'false');
+      viewerScrollY = window.scrollY;
+      document.body.classList.add('viewer-open');
       galleryTrack.scrollTo({ left: galleryTrack.clientWidth * galleryIndex, behavior: 'auto' });
       return;
     }
