@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: clipgrab
-    runtime: node
-    buildCommand: npm install && python3 -m pip install yt-dlp curl-cffi
-    startCommand: npm start
-    envVars:
-      - key: NODE_VERSION
-        value: 20
