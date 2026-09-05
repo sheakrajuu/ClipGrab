@@ -1,0 +1,25 @@
+<div class="web-tools-modal" id="web-tools-modal" role="dialog" aria-modal="true" aria-labelledby="web-tools-title" aria-hidden="true">
+  <div class="web-tools-dialog">
+    <div class="web-tools-dialog-header"><h2 id="web-tools-title">Web tools</h2><button class="web-tools-close" id="web-tools-close" type="button" aria-label="Close Web tools">&times;</button></div>
+    <div class="media-type-picker" role="group" aria-label="Media type">
+      <button class="media-type-option active" type="button" data-media-type="image" aria-pressed="true">Image URLs</button>
+      <button class="media-type-option" type="button" data-media-type="video" aria-pressed="false">Video URLs</button>
+      <span id="media-type-hint">Image mode skips video discovery to reduce server work.</span>
+    </div>
+    <section class="batch-section" aria-label="Batch URL search">
+      <div class="batch-header">Batch search <span>Choose Image URLs or Video URLs, then add one URL per line or separated by commas.</span></div>
+      <div class="batch-name-tools"><input class="batch-name" id="batch-name" type="text" maxlength="60" placeholder="Name this batch" aria-label="Batch name"><button class="batch-name-save" id="rename-batch-btn" type="button">Rename batch</button></div>
+      <form class="batch-form" id="batch-form">
+        <textarea id="batch-input" placeholder="https://example.com/page-one&#10;https://example.com/page-two" aria-label="Batch URLs"></textarea>
+        <button class="batch-btn" type="submit">Find batch</button>
+        <button class="save-url-btn" id="save-batch-btn" type="button">Save batch</button>
+      </form>
+      <div class="batch-status" id="batch-status" aria-live="polite"></div>
+    </section>
+    <section class="saved-url-section" id="saved-url-section" aria-label="Saved URLs">
+      <div class="saved-url-header"><span>Saved URLs</span></div>
+      <div class="saved-url-form"><input type="text" id="saved-url-name" placeholder="Name this URL" maxlength="60"><button class="save-url-btn" id="save-url-btn" type="button">Save current URL</button></div>
+      <div class="saved-url-list" id="saved-url-list"></div>
+    </section>
+  </div>
+</div>

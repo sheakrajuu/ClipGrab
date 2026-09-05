@@ -1,0 +1,45 @@
+<section class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">One simple link. Every platform.</div>
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-platform="TikTok">TikTok</div>
+      <div class="tab" data-platform="Instagram">Instagram</div>
+      <div class="tab" data-platform="Facebook">Facebook</div>
+      <div class="tab" data-platform="Twitter">Twitter / X</div>
+      <div class="tab" data-platform="Reddit">Reddit (Coming soon)</div>
+      <div class="tab" data-platform="Web">Web</div>
+    </div>
+
+    <h1 id="hero-title">Download videos and images from anywhere</h1>
+    <p id="hero-sub">Paste a public social media link and save the media in its original quality.</p>
+
+    <div class="reddit-coming-soon" id="reddit-coming-soon" hidden>
+      <strong>Reddit downloads are coming soon</strong>
+      <span>Try Web mode for public Reddit media. Some posts may not resolve.</span>
+      <button class="web-cta" type="button" id="reddit-web-btn">Try Web mode</button>
+    </div>
+
+    <form class="fetch-bar" id="fetch-form">
+      <input type="url" id="url-input" placeholder="Paste a link from TikTok, Instagram, Facebook or more" required>
+      <div class="input-tools">
+        <button class="paste-btn" type="button" id="paste-btn">Paste</button>
+        <button type="submit">Find media</button>
+      </div>
+    </form>
+    <div class="fetch-hint" id="fetch-hint">Supports TikTok, Instagram, Facebook, X and public websites.</div>
+    <button class="web-tools-btn" id="web-tools-btn" type="button">Open Web tools</button>
+
+    <div class="result-card gallery" id="result-card">
+      <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div></div>
+    </div>
+    <div class="media-grid" id="media-grid"></div>
+    <div class="gallery-viewer" id="gallery-viewer" aria-hidden="true">
+      <button class="gallery-close" id="gallery-close" type="button" aria-label="Close gallery">&times;</button>
+      <div class="gallery-track" id="gallery-track"></div>
+    </div>
+    <div class="video-viewer" id="video-viewer" aria-hidden="true">
+      <button class="gallery-close" id="video-close" type="button" aria-label="Close video player">&times;</button>
+      <video id="video-player" controls autoplay playsinline></video>
+    </div>
+  </div>
+</section>
