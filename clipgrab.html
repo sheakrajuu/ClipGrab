@@ -795,14 +795,20 @@
   }
 
   function showErrorWithFallback(message, platform = selectedPlatform) {
-    resultSub.textContent = message || 'The media could not be downloaded.';
+    const isTikTok = platform === 'TikTok';
+    if (isTikTok) {
+      resultTitle.textContent = 'TikTok downloads coming soon';
+      resultSub.textContent = 'TikTok is temporarily unavailable here. Try SnapVid for now.';
+    } else {
+      resultSub.textContent = message || 'The media could not be downloaded.';
+    }
     const link = document.createElement('a');
     link.className = 'external-download';
     link.href = snapVidUrl(platform);
     link.dataset.sourceUrl = urlInput.value.trim();
     link.target = '_blank';
     link.rel = 'noopener';
-    link.textContent = 'If this does not work, try SnapVid';
+    link.textContent = isTikTok ? 'Try SnapVid for now' : 'If this does not work, try SnapVid';
     resultSub.append(' ', link);
   }
 

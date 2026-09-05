@@ -160,8 +160,19 @@ async function runYtDlpToFile(args, outputPath) {
   throw lastError;
 }
 
+function extractorOptions(sourceUrl) {
+  try {
+    const hostname = new URL(sourceUrl).hostname.toLowerCase().replace(/^www\./, '');
+    return hostname === 'tiktok.com' || hostname.endsWith('.tiktok.com')
+      ? ['--extractor-args', 'tiktok:app_name=musical_ly']
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function extractorArgs(sourceUrl) {
-  return ['--dump-single-json', '--yes-playlist', '--no-warnings', '--socket-timeout', '20', '--retries', '2', '--fragment-retries', '2', '--concurrent-fragments', '4', sourceUrl];
+  return ['--dump-single-json', '--yes-playlist', '--no-warnings', ...extractorOptions(sourceUrl), '--socket-timeout', '20', '--retries', '2', '--fragment-retries', '2', '--concurrent-fragments', '4', sourceUrl];
 }
 
 function downloadUrl(sourceUrl, format, index, height, refererUrl) {
@@ -381,10 +392,11 @@ app.get('/api/download', async (req, res) => {
     if (referer) await rejectPrivateHost(referer);
     const format = ['audio', 'image', 'video'].includes(req.query.format) ? req.query.format : 'video';
     logStage('download request', parsed, format);
+    const sourceExtractorOptions = extractorOptions(parsed.toString());
     const directMedia = format === 'image' ? true : await isDirectMedia(parsed);
     if (directMedia && format === 'video' && /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) {
       try {
-        const metadata = JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', '--no-playlist', '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
+        const metadata = JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', '--no-playlist', ...sourceExtractorOptions, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
         assertDurationAllowed(metadata, parsed);
       } catch (error) {
         if (error.message.startsWith('Videos longer than')) throw error;
@@ -417,12 +429,12 @@ app.get('/api/download', async (req, res) => {
       const cached = metadataCache.get(parsed.toString());
       const metadata = cached && cached.expiresAt > Date.now() && cached.info
         ? cached.info
-        : JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', ...playlistArgs, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
+        : JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
       assertDurationAllowed(metadata, parsed);
       flattenEntries(metadata).forEach(entry => assertDurationAllowed(entry, parsed));
     }
     const quality = Number.isInteger(height) && height > 0 ? `bestvideo[height<=${height}][ext=mp4]+bestaudio/best[height<=${height}][ext=mp4]/best` : 'bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best';
-    const args = format === 'audio' ? ['-f', 'bestaudio[ext=m4a]/bestaudio', ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--no-part', parsed.toString()] : ['-f', quality, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--merge-output-format', 'mp4', parsed.toString()];
+    const args = format === 'audio' ? ['-f', 'bestaudio[ext=m4a]/bestaudio', ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--no-part', parsed.toString()] : ['-f', quality, ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--merge-output-format', 'mp4', parsed.toString()];
     const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'clipgrab-'));
     const outputPath = path.join(tempDir, format === 'audio' ? 'clipgrab-audio.m4a' : 'clipgrab-video.mp4');
     try {
@@ -434,7 +446,7 @@ app.get('/api/download', async (req, res) => {
       let outputExists = false;
       try { outputExists = (await fsp.stat(outputPath)).size > 0; } catch {}
       if (!outputExists && format === 'video') {
-        await runYtDlpToFile(['-f', 'best', ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', parsed.toString()], outputPath);
+        await runYtDlpToFile(['-f', 'best', ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', parsed.toString()], outputPath);
       }
       const stats = await fsp.stat(outputPath);
       const disposition = req.query.preview === '1' ? 'inline' : 'attachment';
