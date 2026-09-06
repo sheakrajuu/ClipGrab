@@ -38,7 +38,6 @@ npm.cmd install
 npm.cmd start
 ```
 
-Open http://localhost:3000.
 
 The app supports browser installation through its web app manifest and service worker. On supported mobile browsers, use the `Install ClipGrab` control. The `Share ClipGrab` control uses the device share sheet when available.
 
