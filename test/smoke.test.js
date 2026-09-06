@@ -41,11 +41,11 @@ test('homepage and PWA assets are available', async () => {
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
   assert.equal(manifestData.short_name, 'ClipGrab');
-  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-maskable.png' && icon.purpose === 'maskable'));
+  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-maskable.png?v=4' && icon.purpose === 'any maskable'));
   assert.equal(worker.status, 200);
   const workerText = await worker.text();
-  assert.match(workerText, /clipgrab-shell-v3/);
-  assert.match(workerText, /icon-maskable\.png/);
+  assert.match(workerText, /clipgrab-shell-v4/);
+  assert.match(workerText, /icon-maskable-192\.png\?v=4/);
   assert.equal(maskableIcon.status, 200);
   assert.match(maskableIcon.headers.get('content-type'), /image\/png/);
 });
