@@ -1,6 +1,6 @@
 const CACHE_NAME = 'clipgrab-shell-v1';
 const MEDIA_CACHE_NAME = 'clipgrab-media-v1';
-const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/app-icon.svg'];
+const SHELL = ['/', '/manifest.webmanifest', '/clipgrab-icon.ico', '/clipgrab-icon-512.png'];
 let offlineEnabled = false;
 
 self.addEventListener('install', event => {
