@@ -389,7 +389,8 @@ app.post('/api/media', async (req, res) => {
       const videoUrls = ['image', 'audio'].includes(requestedMediaType) ? [] : await extractPageVideos(parsed).catch(() => []);
       const audioUrls = ['image', 'video'].includes(requestedMediaType) ? [] : await extractPageAudio(parsed).catch(() => []);
       const imageUrls = ['video', 'audio'].includes(requestedMediaType) ? [] : await extractPageImages(parsed).catch(() => []);
-      if (videoUrls.length || audioUrls.length || imageUrls.length) {
+      const autoScanNeedsExtractor = requestedMediaType === 'auto' && imageUrls.length && !videoUrls.length && !audioUrls.length;
+      if (!autoScanNeedsExtractor && (videoUrls.length || audioUrls.length || imageUrls.length)) {
         logStage('video extraction succeeded', parsed, `${videoUrls.length} candidates`);
         const data = webMediaData(parsed, requestedMediaType, imageUrls, videoUrls, audioUrls);
         metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
