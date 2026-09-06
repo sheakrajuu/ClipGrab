@@ -255,7 +255,9 @@
   .gallery-mode .gallery-tile .image-preview{object-fit:cover;background:#101316;}
   .gallery-mode .gallery-tile:hover img{transform:scale(1.04);}
   .gallery-mode .gallery-tile .media-item-body{display:none;}
-  .gallery-mode > .load-more-media,.gallery-mode > .batch-navigation{column-span:all;}
+  .gallery-actions{grid-column:1 / -1;display:flex;flex-direction:column;gap:10px;width:100%;}
+  .gallery-mode .gallery-actions{column-span:all;}
+  .gallery-actions .load-more-media{width:100%;}
   .hide-image{position:absolute;right:7px;top:7px;border:0;border-radius:6px;background:rgba(16,19,22,.82);color:#fff;padding:6px 8px;font:600 11px Inter,sans-serif;cursor:pointer;opacity:0;transition:opacity .15s ease;z-index:1;}
   .gallery-tile .hide-image{pointer-events:none;}
   .gallery-tile:hover .hide-image,.gallery-tile:focus-within .hide-image{opacity:1;pointer-events:auto;}
@@ -1100,6 +1102,14 @@
     const previousWindow = hasPreviousItems
       ? `<button class="load-more-media" type="button" data-web-previous-window="true">Show previous ${isWebVideo ? 'video' : 'images'}</button>`
       : '';
+    const nextAction = hasMoreItems
+      ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">${selectedPlatform === 'Web' ? `Load next ${isWebVideo ? 'video' : '10 images'} (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)` : `Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)`}</button>`
+      : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
+        ? `<div class="batch-navigation">${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}</div>`
+        : '';
+    const galleryActions = previousWindow || nextAction || fetchAgain
+      ? `<div class="gallery-actions">${previousWindow}${nextAction}${fetchAgain}</div>`
+      : '';
     mediaGrid.innerHTML = items.map(item => {
       const downloadType = item.type === 'image' ? 'image' : item.type === 'audio' ? 'audio' : 'video';
       const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
@@ -1121,11 +1131,7 @@
       const galleryTile = galleryMode && item.type === 'image' ? ' gallery-tile' : '';
       const hideButton = galleryTile ? `<button class="hide-image" type="button" data-hide-id="${escapeHtml(item.id)}" aria-label="Hide this image">Hide</button>` : '';
       return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div><div class="media-meta">${escapeHtml(mediaMeta)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : `<input class="file-name" type="text" placeholder="Optional file name" aria-label="Optional file name">${formats}${resolutions}<div class="progress-track" aria-hidden="true"><div class="progress-bar"></div></div>`}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${offlineButton}${snapVidFallback}</div></div></article>`;
-    }).join('') + previousWindow + (hasMoreItems
-      ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">${selectedPlatform === 'Web' ? `Load next ${isWebVideo ? 'video' : '10 images'} (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)` : `Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)`}</button>`
-      : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
-        ? `<div class="batch-navigation">${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}</div>`
-        : '') + fetchAgain;
+    }).join('') + galleryActions;
   }
 
   function closeGallery() {
