@@ -1,17 +1,26 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const http = require('node:http');
 const app = require('../server');
 
 let server;
 let baseUrl;
+let fixtureServer;
+let fixtureUrl;
 
 test.before(async () => {
   server = app.listen(0);
   await new Promise(resolve => server.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
+  fixtureServer = http.createServer((request, response) => {
+    response.writeHead(200, { 'content-type': 'text/html' });
+    response.end('<meta property="og:image" content="/poster.jpg"><video data-video-src="/media/launch.mp4"></video>');
+  }).listen(0);
+  await new Promise(resolve => fixtureServer.once('listening', resolve));
+  fixtureUrl = `http://127.0.0.1:${fixtureServer.address().port}/video-page`;
 });
 
-test.after(() => server.close());
+test.after(() => { server.close(); fixtureServer.close(); });
 
 test('health endpoint returns service status and request id', async () => {
   const response = await fetch(`${baseUrl}/health`);
@@ -29,9 +38,16 @@ test('homepage and PWA assets are available', async () => {
   assert.equal(page.status, 200);
   assert.match(await page.text(), /ClipGrab/);
   assert.equal(manifest.status, 200);
-  assert.equal((await manifest.json()).short_name, 'ClipGrab');
+  const manifestData = await manifest.json();
+  assert.equal(manifestData.short_name, 'ClipGrab');
+  assert.ok(manifestData.icons.every(icon => icon.purpose === 'any'));
   assert.equal(worker.status, 200);
-  assert.match(await worker.text(), /CACHE_NAME/);
+  assert.match(await worker.text(), /clipgrab-shell-v2/);
+});
+
+test('video extraction finds lazy-loaded video sources', async () => {
+  const videos = await app.extractPageVideos(new URL(fixtureUrl));
+  assert.deepEqual(videos, [`${new URL(fixtureUrl).origin}/media/launch.mp4`]);
 });
 
 test('focused SEO pages are available with page-specific metadata', async () => {
