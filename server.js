@@ -497,9 +497,9 @@ app.get('/api/download', async (req, res) => {
       }
     }
     const quality = Number.isInteger(height) && height > 0 ? `bestvideo[height<=${height}][ext=mp4]+bestaudio/best[height<=${height}][ext=mp4]/best` : 'bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best';
-    const args = format === 'audio' ? ['-f', 'bestaudio[ext=m4a]/bestaudio', ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--no-part', parsed.toString()] : ['-f', quality, ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--merge-output-format', 'mp4', parsed.toString()];
+    const args = format === 'audio' ? ['-f', 'bestaudio/best', '--extract-audio', '--audio-format', 'mp3', ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--no-part', parsed.toString()] : ['-f', quality, ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--merge-output-format', 'mp4', parsed.toString()];
     const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'clipgrab-'));
-    const outputPath = path.join(tempDir, format === 'audio' ? 'clipgrab-audio.m4a' : 'clipgrab-video.mp4');
+    const outputPath = path.join(tempDir, format === 'audio' ? 'clipgrab-audio.mp3' : 'clipgrab-video.mp4');
     try {
       try {
         await runYtDlpToFile(args, outputPath);
@@ -513,7 +513,7 @@ app.get('/api/download', async (req, res) => {
       }
       const stats = await fsp.stat(outputPath);
       const disposition = req.query.preview === '1' ? 'inline' : 'attachment';
-      const extension = format === 'audio' ? 'm4a' : 'mp4';
+      const extension = format === 'audio' ? 'mp3' : 'mp4';
       res.setHeader('Content-Disposition', `${disposition}; filename="${downloadFileName(req.query.name, `clipgrab-${format}`, extension)}"`);
       res.setHeader('Content-Type', format === 'audio' ? 'audio/mp4' : 'video/mp4');
       res.setHeader('Content-Length', stats.size);

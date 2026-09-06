@@ -297,6 +297,11 @@
   .media-item-body{min-width:0;flex:1}.media-item-title{font-weight:700;font-size:13px;overflow-wrap:anywhere;margin-bottom:8px;}
   .media-meta{color:var(--muted);font-size:11px;margin:-4px 0 8px;overflow-wrap:anywhere;}
   .resolution{width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fff;font:12px Inter,sans-serif;margin-bottom:8px;}
+  .format-picker{display:flex;gap:6px;width:100%;margin-bottom:8px;padding:4px;background:#F1F3EC;border:1px solid var(--border);border-radius:9px;}
+  .format-option{flex:1;border:0;border-radius:6px;background:transparent;color:var(--muted);padding:8px 10px;font:700 12px Inter,sans-serif;cursor:pointer;transition:background .15s ease,color .15s ease,transform .15s ease;}
+  .format-option:hover{color:var(--text);}
+  .format-option.active{background:var(--bg);color:var(--accent);box-shadow:0 2px 5px rgba(16,19,22,.16);}
+  .format-option:focus-visible{outline:2px solid var(--accent-dark);outline-offset:1px;}
   @media (max-width:600px){
     .web-tools-modal{padding:12px;}
     .web-tools-dialog{padding:14px;max-height:calc(100vh - 24px);}
@@ -1100,7 +1105,7 @@
         ? '<a class="external-download snapvid-link" href="https://snapvid.net/en/instagram-downloader" target="_blank" rel="noopener">Try on SnapVid</a>'
         : '';
       const resolutions = item.resolutions.length ? `<select class="resolution" data-item="${item.index}" data-download="${escapeHtml(item.downloads.video)}"><option value="">Best available quality</option>${item.resolutions.map(height => `<option value="${height}" ${item.selectedHeight === height ? 'selected' : ''}>${height}p</option>`).join('')}</select>` : '';
-      const formats = item.type === 'video' ? '<select class="format-select" aria-label="Download format"><option value="video">MP4 video</option><option value="audio">MP3 audio</option></select>' : item.type === 'audio' ? '<select class="format-select" aria-label="Download format"><option value="audio">MP3 audio</option></select>' : '';
+      const formats = item.type === 'video' ? '<div class="format-picker" role="group" aria-label="Download format"><button class="format-option active" type="button" data-format="video" aria-pressed="true">MP4</button><button class="format-option" type="button" data-format="audio" aria-pressed="false">MP3</button></div>' : item.type === 'audio' ? '<div class="format-picker" role="group" aria-label="Download format"><button class="format-option active" type="button" data-format="audio" aria-pressed="true">MP3</button></div>' : '';
       const image = item.type === 'image'
         ? (item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" data-gallery-src="${escapeHtml(item.thumbnail)}" alt="">` : '<div class="result-thumb"></div>')
         : item.type === 'audio'
@@ -1397,10 +1402,11 @@
     if (!button) return;
     const item = button.closest('.media-item');
     const selector = item?.querySelector('.resolution');
-    const formatSelector = item?.querySelector('.format-select');
-    const target = (selector && selector.value ? selector.dataset.download + '&height=' + encodeURIComponent(selector.value) : button.dataset.url) + (formatSelector && formatSelector.value === 'audio' ? '&format=audio' : '');
+    const formatOption = item?.querySelector('.format-option.active');
+    const format = formatOption?.dataset.format || 'video';
+    const target = (selector && selector.value ? selector.dataset.download + '&height=' + encodeURIComponent(selector.value) : button.dataset.url) + (format === 'audio' ? '&format=audio' : '');
     const nameInput = button.closest('.media-item')?.querySelector('.file-name');
-    const extension = formatSelector?.value === 'audio' ? 'm4a' : button.dataset.type === 'image' ? 'jpg' : 'mp4';
+    const extension = format === 'audio' ? 'mp3' : button.dataset.type === 'image' ? 'jpg' : 'mp4';
     downloadFile(target, button, `${safeFileName(nameInput?.value, 'clipgrab-media')}.${extension}`);
   });
   mediaGrid.addEventListener('error', event => {
@@ -1410,6 +1416,18 @@
     fallback.textContent = 'Image unavailable';
     event.target.replaceWith(fallback);
   }, true);
+  mediaGrid.addEventListener('click', event => {
+    const option = event.target.closest('.format-option');
+    if (!option) return;
+    const picker = option.closest('.format-picker');
+    picker.querySelectorAll('.format-option').forEach(button => {
+      const active = button === option;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    const downloadButton = option.closest('.media-item')?.querySelector('.media-download');
+    if (downloadButton) downloadButton.textContent = `Download ${option.dataset.format === 'audio' ? 'audio' : 'video'}`;
+  });
 
   document.getElementById('paste-btn').addEventListener('click', async () => {
     try { urlInput.value = await navigator.clipboard.readText(); urlInput.focus(); } catch { urlInput.focus(); }
@@ -1494,7 +1512,7 @@
       status.textContent = `Downloading ${index + 1} of ${ready.length}...`;
       const targetType = item.type === 'image' ? 'image' : item.type === 'audio' ? 'audio' : 'video';
       const target = item.downloads?.[targetType];
-      if (target) await downloadFile(target, downloadAllButton, `${safeFileName(item.title, `clipgrab-${index + 1}`)}.${targetType === 'image' ? 'jpg' : targetType === 'audio' ? 'm4a' : 'mp4'}`);
+      if (target) await downloadFile(target, downloadAllButton, `${safeFileName(item.title, `clipgrab-${index + 1}`)}.${targetType === 'image' ? 'jpg' : targetType === 'audio' ? 'mp3' : 'mp4'}`);
     }
     status.textContent = `Finished ${ready.length} download${ready.length === 1 ? '' : 's'}.`;
     downloadAllButton.disabled = false;
@@ -1648,8 +1666,12 @@
   renderHistory();
   if (navigator.share) shareButton.hidden = false;
   let deferredInstallPrompt;
-  window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); deferredInstallPrompt = event; installButton.hidden = false; });
-  installButton.addEventListener('click', async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; installButton.hidden = true; });
+  const standaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const setInstallButtonVisibility = () => { installButton.hidden = standaloneMode || !deferredInstallPrompt; };
+  window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); deferredInstallPrompt = event; setInstallButtonVisibility(); });
+  window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; installButton.hidden = true; });
+  installButton.addEventListener('click', async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; setInstallButtonVisibility(); });
+  setInstallButtonVisibility();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready).then(registration => registration.active?.postMessage({ type: 'offline-setting', enabled: privacySettings().offline && !privacySettings().privateMode })).catch(() => {});
 
   const savedState = readState();
