@@ -34,6 +34,14 @@ test('homepage and PWA assets are available', async () => {
   assert.match(await worker.text(), /CACHE_NAME/);
 });
 
+test('focused SEO pages are available with page-specific metadata', async () => {
+  const response = await fetch(`${baseUrl}/web-image-downloader`);
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /Web image downloader/);
+  assert.match(html, /canonical/);
+});
+
 test('invalid media requests return a useful error', async () => {
   const response = await fetch(`${baseUrl}/api/media`, {
     method: 'POST',
