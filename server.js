@@ -10,6 +10,7 @@ const fsp = require('node:fs/promises');
 const os = require('node:os');
 const { pipeline } = require('node:stream/promises');
 const { Readable } = require('node:stream');
+const crypto = require('node:crypto');
 const ffmpegPath = require('ffmpeg-static');
 const cheerio = require('cheerio');
 
@@ -44,6 +45,12 @@ function renderClipgrabPage() {
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '10kb' }));
+app.use((req, res, next) => {
+  const requestId = crypto.randomUUID();
+  req.requestId = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  next();
+});
 const requestRateLimit = rateLimit({
   windowMs: 60 * 1000,
   limit: 30,
@@ -89,6 +96,11 @@ function parseUrl(value) {
   const parsed = new URL(value);
   if (!allowedProtocols.has(parsed.protocol)) throw new Error('Only HTTP and HTTPS URLs are supported.');
   return parsed;
+}
+
+function downloadFileName(value, fallback, extension) {
+  const cleaned = String(value || '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '').trim().replace(/\s+/g, ' ').slice(0, 80);
+  return `${cleaned || fallback}.${extension}`;
 }
 
 function logStage(stage, parsed, details = '') {
@@ -189,6 +201,20 @@ function previewUrl(sourceUrl, refererUrl) {
   return '/api/preview?' + params.toString();
 }
 
+function webMediaData(parsed, requestedMediaType, imageUrls = [], videoUrls = [], audioUrls = []) {
+  const fileType = url => { try { return path.extname(new URL(url).pathname).replace('.', '').toUpperCase() || 'MEDIA'; } catch { return 'MEDIA'; } };
+  const sourceDomain = url => { try { return new URL(url).hostname; } catch { return parsed.hostname; } };
+  const includeImages = requestedMediaType === 'auto' || requestedMediaType === 'all' || requestedMediaType === 'image';
+  const includeVideos = requestedMediaType === 'auto' || requestedMediaType === 'all' || requestedMediaType === 'video';
+  const includeAudio = requestedMediaType === 'auto' || requestedMediaType === 'all' || requestedMediaType === 'audio';
+  const items = [
+    ...(includeVideos ? videoUrls.map((url, position) => ({ index: position + 1, title: `Video ${position + 1}`, fileType: fileType(url), sourceDomain: sourceDomain(url), thumbnail: '', type: 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { video: downloadUrl(url, 'video', null, null, parsed.toString()), audio: downloadUrl(url, 'audio', null, null, parsed.toString()) } })) : []),
+    ...(includeAudio ? audioUrls.map((url, position) => ({ index: position + 1, title: `Audio ${position + 1}`, fileType: fileType(url), sourceDomain: sourceDomain(url), thumbnail: '', type: 'audio', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { audio: downloadUrl(url, 'audio', null, null, parsed.toString()) } })) : []),
+    ...(includeImages ? imageUrls.map((url, position) => ({ index: position + 1, title: `Image ${position + 1}`, fileType: fileType(url), sourceDomain: sourceDomain(url), thumbnail: previewUrl(url, parsed.toString()), type: 'image', duration: null, maxDuration: null, resolutions: [], downloads: { image: downloadUrl(url, 'image', null, null, parsed.toString()) } })) : [])
+  ];
+  return { title: `${parsed.hostname} media`, source: 'web-scan', scan: { host: parsed.hostname, mode: requestedMediaType, images: imageUrls.length, videos: videoUrls.length, audio: audioUrls.length }, count: items.length, items };
+}
+
 async function directMediaType(parsed) {
   if (/\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) return 'video';
   if (/\.(jpg|jpeg|png|gif|webp|avif)(\?.*)?$/i.test(parsed.pathname)) return 'image';
@@ -277,10 +303,31 @@ async function extractPageImages(parsed) {
 }
 
 async function extractPageVideos(parsed) {
-  const response = await fetch(parsed, { signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+  const isTikTok = /(^|\.)tiktok\.com$/i.test(parsed.hostname);
+  const response = await fetch(parsed, {
+    signal: AbortSignal.timeout(metadataTimeoutMs),
+    headers: { 'User-Agent': isTikTok ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36' : 'ClipGrab/1.0' }
+  });
   if (!response.ok) return [];
-  const $ = cheerio.load(await response.text());
+  const html = await response.text();
+  const $ = cheerio.load(html);
   const candidates = [];
+  if (isTikTok) {
+    const addTikTokData = value => {
+      if (!value || typeof value !== 'object') return;
+      if (Array.isArray(value)) return value.forEach(addTikTokData);
+      for (const [key, child] of Object.entries(value)) {
+        if (typeof child === 'string' && /^(playAddr|downloadAddr|src)$/i.test(key) && /^https?:/i.test(child)) candidates.push(child);
+        else if (child && typeof child === 'object') addTikTokData(child);
+      }
+    };
+    $('script#__UNIVERSAL_DATA_FOR_REHYDRATION__, script#__SIGI_STATE__').each((_, element) => {
+      try { addTikTokData(JSON.parse($(element).text())); } catch {}
+    });
+    for (const match of html.matchAll(/"(?:playAddr|downloadAddr)":"((?:\\.|[^"\\])*)"/g)) {
+      try { candidates.push(JSON.parse(`"${match[1]}"`)); } catch {}
+    }
+  }
   $('script[type="application/ld+json"]').each((_, element) => {
     try {
       const data = JSON.parse($(element).text());
@@ -297,13 +344,25 @@ async function extractPageVideos(parsed) {
   $('video, video source, source').each((_, element) => {
     for (const attribute of ['src', 'data-src', 'data-video', 'data-url']) candidates.push($(element).attr(attribute));
   });
-  return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))].slice(0, 10);
+  return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))];
+}
+
+async function extractPageAudio(parsed) {
+  const response = await fetch(parsed, { signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+  if (!response.ok) return [];
+  const $ = cheerio.load(await response.text());
+  const candidates = [];
+  $('audio, audio source, source[type^="audio/"]').each((_, element) => {
+    for (const attribute of ['src', 'data-src', 'data-audio', 'data-url']) candidates.push($(element).attr(attribute));
+  });
+  $('meta[property="og:audio"], meta[property="og:audio:url"], meta[name="twitter:player:stream"]').each((_, element) => candidates.push($(element).attr('content')));
+  return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))];
 }
 
 app.post('/api/media', async (req, res) => {
   try {
     const parsed = parseUrl(req.body.url);
-    const requestedMediaType = req.body.mediaType === 'image' || req.body.mediaType === 'video' ? req.body.mediaType : null;
+    const requestedMediaType = ['auto', 'all', 'image', 'video', 'audio'].includes(req.body.mediaType) ? req.body.mediaType : 'auto';
     logStage('media request', parsed);
     await rejectPrivateHost(parsed);
     const cacheKey = parsed.toString();
@@ -311,34 +370,32 @@ app.post('/api/media', async (req, res) => {
     if (cached && cached.expiresAt > Date.now()) return res.json(cached.data);
     metadataCache.delete(cacheKey);
     const directType = await directMediaType(parsed);
-    if (directType === 'image') {
-      const data = { title: path.basename(parsed.pathname) || 'Direct image', source: 'direct', count: 1, items: [{ index: 1, title: path.basename(parsed.pathname) || 'Image', thumbnail: previewUrl(parsed.toString()), type: 'image', resolutions: [], downloads: { image: downloadUrl(parsed.toString(), 'image', 1) } }] };
+    if (directType && !['auto', 'all', directType].includes(requestedMediaType)) {
+      throw new Error(`This URL contains a ${directType}; choose ${directType} mode or Auto detect.`);
+    }
+    if (directType === 'image' || directType === 'video') {
+      const isImage = directType === 'image';
+      const data = { title: path.basename(parsed.pathname) || 'Direct media', source: 'direct', count: 1, scan: { host: parsed.hostname, mode: requestedMediaType, images: isImage ? 1 : 0, videos: isImage ? 0 : 1, audio: 0 }, items: [{ index: 1, title: path.basename(parsed.pathname) || (isImage ? 'Image' : 'Video'), thumbnail: isImage ? previewUrl(parsed.toString()) : '', type: isImage ? 'image' : 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: isImage ? { image: downloadUrl(parsed.toString(), 'image', 1) } : { video: downloadUrl(parsed.toString(), 'video', 1), audio: downloadUrl(parsed.toString(), 'audio', 1) } }] };
       metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     }
     if (!isSocialMediaUrl(parsed)) {
-      const videoUrls = requestedMediaType === 'image' ? [] : await extractPageVideos(parsed).catch(() => []);
-      if (videoUrls.length) {
+      const videoUrls = ['image', 'audio'].includes(requestedMediaType) ? [] : await extractPageVideos(parsed).catch(() => []);
+      const audioUrls = ['image', 'video'].includes(requestedMediaType) ? [] : await extractPageAudio(parsed).catch(() => []);
+      const imageUrls = ['video', 'audio'].includes(requestedMediaType) ? [] : await extractPageImages(parsed).catch(() => []);
+      if (videoUrls.length || audioUrls.length || imageUrls.length) {
         logStage('video extraction succeeded', parsed, `${videoUrls.length} candidates`);
-        const data = { title: 'Videos found', source: 'web-videos', count: videoUrls.length, items: videoUrls.map((videoUrl, position) => ({ index: position + 1, title: `Video ${position + 1}`, thumbnail: '', type: 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { video: downloadUrl(videoUrl, 'video') } })) };
+        const data = webMediaData(parsed, requestedMediaType, imageUrls, videoUrls, audioUrls);
         metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
         return res.json(data);
       }
-      const imageUrls = requestedMediaType === 'video' ? [] : await extractPageImages(parsed).catch(() => []);
-      if (imageUrls.length) {
-        logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
-        const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl, parsed.toString()), type: 'image', resolutions: [], downloads: { image: downloadUrl(imageUrl, 'image', null, null, parsed.toString()) } })) };
-        metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
-        return res.json(data);
-      }
-      if (requestedMediaType === 'image') throw new Error('No images were found at this URL.');
     }
     try {
       const raw = await runYtDlp(extractorArgs(cacheKey));
       const info = JSON.parse(raw);
-      assertDurationAllowed(info, parsed);
+      if (requestedMediaType !== 'video') assertDurationAllowed(info, parsed);
       const entries = flattenEntries(info);
-      entries.forEach(entry => assertDurationAllowed(entry, parsed));
+      if (requestedMediaType !== 'video') entries.forEach(entry => assertDurationAllowed(entry, parsed));
       const items = entries.length > 1 ? entries.map((entry, position) => itemFromInfo(entry, parsed.toString(), position + 1)) : [itemFromInfo(entries[0] || info, parsed.toString(), 1)];
       const data = { title: info.title || items[0].title, thumbnail: info.thumbnail || items[0].thumbnail, source: 'extractor', count: items.length, items };
       metadataCache.set(cacheKey, { data, info, expiresAt: Date.now() + metadataCacheTtl });
@@ -346,25 +403,21 @@ app.post('/api/media', async (req, res) => {
     } catch (extractorError) {
       if (!await isDirectMedia(parsed)) {
         if (!isSocialMediaUrl(parsed)) {
-          const videoUrls = requestedMediaType === 'image' ? [] : await extractPageVideos(parsed).catch(() => []);
-          if (videoUrls.length) {
+          const videoUrls = ['image', 'audio'].includes(requestedMediaType) ? [] : await extractPageVideos(parsed).catch(() => []);
+          const audioUrls = ['image', 'video'].includes(requestedMediaType) ? [] : await extractPageAudio(parsed).catch(() => []);
+          const imageUrls = ['video', 'audio'].includes(requestedMediaType) ? [] : await extractPageImages(parsed).catch(() => []);
+          if (videoUrls.length || audioUrls.length || imageUrls.length) {
             logStage('video extraction succeeded', parsed, `${videoUrls.length} candidates`);
-            const data = { title: 'Videos found', source: 'web-videos', count: videoUrls.length, items: videoUrls.map((videoUrl, position) => ({ index: position + 1, title: `Video ${position + 1}`, thumbnail: '', type: 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { video: downloadUrl(videoUrl, 'video') } })) };
-            metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
-            return res.json(data);
-          }
-          const imageUrls = requestedMediaType === 'video' ? [] : await extractPageImages(parsed).catch(() => []);
-          if (imageUrls.length) {
-            logStage('image extraction succeeded', parsed, `${imageUrls.length} candidates`);
-            const data = { title: 'Images found', source: 'web-images', count: imageUrls.length, items: imageUrls.map((imageUrl, position) => ({ index: position + 1, title: `Image ${position + 1}`, thumbnail: previewUrl(imageUrl, parsed.toString()), type: 'image', resolutions: [], downloads: { image: isInstagramResizedPreview(imageUrl) ? '' : downloadUrl(imageUrl, 'image', null, null, parsed.toString()) } })) };
+            const data = webMediaData(parsed, requestedMediaType, imageUrls, videoUrls, audioUrls);
             metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
             return res.json(data);
           }
         }
-        const videoUrls = await extractPageVideos(parsed).catch(() => []);
-        if (videoUrls.length) {
+        const videoUrls = ['image', 'audio'].includes(requestedMediaType) ? [] : await extractPageVideos(parsed).catch(() => []);
+        const audioUrls = ['image', 'video'].includes(requestedMediaType) ? [] : await extractPageAudio(parsed).catch(() => []);
+        if (videoUrls.length || audioUrls.length) {
           logStage('video extraction succeeded', parsed, `${videoUrls.length} candidates`);
-          const data = { title: 'Videos found', source: 'web-videos', count: videoUrls.length, items: videoUrls.map((videoUrl, position) => ({ index: position + 1, title: `Video ${position + 1}`, thumbnail: '', type: 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { video: downloadUrl(videoUrl, 'video') } })) };
+          const data = webMediaData(parsed, requestedMediaType, [], videoUrls, audioUrls);
           metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
           return res.json(data);
         }
@@ -391,13 +444,14 @@ app.get('/api/download', async (req, res) => {
     await rejectPrivateHost(parsed);
     if (referer) await rejectPrivateHost(referer);
     const format = ['audio', 'image', 'video'].includes(req.query.format) ? req.query.format : 'video';
+    const isPreview = req.query.preview === '1';
     logStage('download request', parsed, format);
     const sourceExtractorOptions = extractorOptions(parsed.toString());
     const directMedia = format === 'image' ? true : await isDirectMedia(parsed);
     if (directMedia && format === 'video' && /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) {
       try {
         const metadata = JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', '--no-playlist', ...sourceExtractorOptions, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
-        assertDurationAllowed(metadata, parsed);
+        if (!isPreview) assertDurationAllowed(metadata, parsed);
       } catch (error) {
         if (error.message.startsWith('Videos longer than')) throw error;
       }
@@ -410,7 +464,7 @@ app.get('/api/download', async (req, res) => {
       const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
       if (!(format === 'image' ? /^image\// : /^video\//).test(contentType)) throw new Error('The source did not return a valid media file.');
       const extension = contentType.startsWith('image/') ? contentType.split('/')[1].split(';')[0].replace('jpeg', 'jpg') : path.extname(parsed.pathname).slice(1).toLowerCase() || 'mp4';
-      res.setHeader('Content-Disposition', `attachment; filename="clipgrab-media.${extension}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadFileName(req.query.name, 'clipgrab-media', extension)}"`);
       res.setHeader('Content-Type', contentType);
       const contentLength = upstream.headers.get('content-length');
       if (contentLength) res.setHeader('Content-Length', contentLength);
@@ -430,8 +484,10 @@ app.get('/api/download', async (req, res) => {
       const metadata = cached && cached.expiresAt > Date.now() && cached.info
         ? cached.info
         : JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
-      assertDurationAllowed(metadata, parsed);
-      flattenEntries(metadata).forEach(entry => assertDurationAllowed(entry, parsed));
+      if (!isPreview) {
+        assertDurationAllowed(metadata, parsed);
+        flattenEntries(metadata).forEach(entry => assertDurationAllowed(entry, parsed));
+      }
     }
     const quality = Number.isInteger(height) && height > 0 ? `bestvideo[height<=${height}][ext=mp4]+bestaudio/best[height<=${height}][ext=mp4]/best` : 'bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best';
     const args = format === 'audio' ? ['-f', 'bestaudio[ext=m4a]/bestaudio', ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--no-part', parsed.toString()] : ['-f', quality, ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '3', '--fragment-retries', '3', '--concurrent-fragments', '4', '--merge-output-format', 'mp4', parsed.toString()];
@@ -450,7 +506,8 @@ app.get('/api/download', async (req, res) => {
       }
       const stats = await fsp.stat(outputPath);
       const disposition = req.query.preview === '1' ? 'inline' : 'attachment';
-      res.setHeader('Content-Disposition', `${disposition}; filename="clipgrab-${format}.${format === 'audio' ? 'm4a' : 'mp4'}"`);
+      const extension = format === 'audio' ? 'm4a' : 'mp4';
+      res.setHeader('Content-Disposition', `${disposition}; filename="${downloadFileName(req.query.name, `clipgrab-${format}`, extension)}"`);
       res.setHeader('Content-Type', format === 'audio' ? 'audio/mp4' : 'video/mp4');
       res.setHeader('Content-Length', stats.size);
       await pipeline(fs.createReadStream(outputPath), res);
@@ -458,11 +515,11 @@ app.get('/api/download', async (req, res) => {
       await fsp.rm(tempDir, { recursive: true, force: true });
     }
   } catch (error) {
-    console.warn(`[clipgrab] download failed - ${error.message}`);
+    console.warn(`[clipgrab] download failed [${req.requestId}] - ${error.message}`);
     if (!res.headersSent) {
       res.status(error.message === 'The download engine is unavailable.' ? 502 : 400);
       res.setHeader('Content-Disposition', 'inline');
-      res.type('text/plain').send(error.message);
+      res.type('text/plain').send(`${error.message} (Request ${req.requestId})`);
     }
   }
 });
@@ -511,5 +568,8 @@ app.get('/api/preview', previewRateLimit, async (req, res) => {
 });
 
 app.get(['/about', '/terms', '/privacy'], (req, res) => res.sendFile(path.join(__dirname, 'legal.html')));
+app.get('/manifest.webmanifest', (req, res) => res.sendFile(path.join(__dirname, 'manifest.webmanifest')));
+app.get('/sw.js', (req, res) => res.type('application/javascript').sendFile(path.join(__dirname, 'sw.js')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'clipgrab.html')));
-app.listen(port, () => console.log(`ClipGrab running at http://localhost:${port}`));
+if (require.main === module) app.listen(port, () => console.log(`ClipGrab running at http://localhost:${port}`));
+module.exports = app;

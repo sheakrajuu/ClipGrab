@@ -1,0 +1,17 @@
+{
+  "name": "ClipGrab",
+  "short_name": "ClipGrab",
+  "description": "Save public videos and images from supported websites.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f6fa",
+  "theme_color": "#101316",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

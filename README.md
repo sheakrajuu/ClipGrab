@@ -40,6 +40,16 @@ npm.cmd start
 
 Open http://localhost:3000.
 
+The app supports browser installation through its web app manifest and service worker. On supported mobile browsers, use the `Install ClipGrab` control. The `Share ClipGrab` control uses the device share sheet when available.
+
+Run the smoke tests with:
+
+```powershell
+npm.cmd test
+```
+
+Recent links, saved URLs, result state, and hidden gallery items are stored locally in the browser. Downloaded media is streamed through the server and is not kept as a permanent file.
+
 ## API
 
 - `GET /health` returns the service health status used by Render.
