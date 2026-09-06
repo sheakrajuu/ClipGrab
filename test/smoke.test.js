@@ -30,19 +30,25 @@ test('health endpoint returns service status and request id', async () => {
 });
 
 test('homepage and PWA assets are available', async () => {
-  const [page, manifest, worker] = await Promise.all([
+  const [page, manifest, worker, maskableIcon] = await Promise.all([
     fetch(`${baseUrl}/`),
     fetch(`${baseUrl}/manifest.webmanifest`),
-    fetch(`${baseUrl}/sw.js`)
+    fetch(`${baseUrl}/sw.js`),
+    fetch(`${baseUrl}/icons/icon-maskable.svg`)
   ]);
   assert.equal(page.status, 200);
   assert.match(await page.text(), /ClipGrab/);
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
   assert.equal(manifestData.short_name, 'ClipGrab');
-  assert.ok(manifestData.icons.every(icon => icon.purpose === 'any'));
+  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-maskable.svg' && icon.purpose === 'maskable'));
   assert.equal(worker.status, 200);
-  assert.match(await worker.text(), /clipgrab-shell-v2/);
+  const workerText = await worker.text();
+  assert.match(workerText, /clipgrab-shell-v3/);
+  assert.match(workerText, /icon-maskable\.svg/);
+  assert.equal(maskableIcon.status, 200);
+  assert.match(maskableIcon.headers.get('content-type'), /image\/svg\+xml/);
+  assert.match(await maskableIcon.text(), /<path/);
 });
 
 test('video extraction finds lazy-loaded video sources', async () => {
