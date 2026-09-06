@@ -34,21 +34,20 @@ test('homepage and PWA assets are available', async () => {
     fetch(`${baseUrl}/`),
     fetch(`${baseUrl}/manifest.webmanifest`),
     fetch(`${baseUrl}/sw.js`),
-    fetch(`${baseUrl}/icons/icon-maskable.svg`)
+    fetch(`${baseUrl}/icons/icon-maskable.png`)
   ]);
   assert.equal(page.status, 200);
   assert.match(await page.text(), /ClipGrab/);
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
   assert.equal(manifestData.short_name, 'ClipGrab');
-  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-maskable.svg' && icon.purpose === 'maskable'));
+  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-maskable.png' && icon.purpose === 'maskable'));
   assert.equal(worker.status, 200);
   const workerText = await worker.text();
   assert.match(workerText, /clipgrab-shell-v3/);
-  assert.match(workerText, /icon-maskable\.svg/);
+  assert.match(workerText, /icon-maskable\.png/);
   assert.equal(maskableIcon.status, 200);
-  assert.match(maskableIcon.headers.get('content-type'), /image\/svg\+xml/);
-  assert.match(await maskableIcon.text(), /<path/);
+  assert.match(maskableIcon.headers.get('content-type'), /image\/png/);
 });
 
 test('video extraction finds lazy-loaded video sources', async () => {
