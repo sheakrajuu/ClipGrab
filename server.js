@@ -344,9 +344,11 @@ async function extractPageVideos(parsed) {
       });
     } catch {}
   });
-  $('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player:stream"]').each((_, element) => candidates.push($(element).attr('content')));
-  $('video, video source, source').each((_, element) => {
-    for (const attribute of ['src', 'data-src', 'data-video', 'data-url']) candidates.push($(element).attr(attribute));
+  $('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player:stream"], meta[itemprop="contentUrl"], link[rel="video_src"]').each((_, element) => candidates.push($(element).attr('content') || $(element).attr('href')));
+  $('video, video source, source[type^="video/"], [data-video-src], [data-video-url], [data-video]').each((_, element) => {
+    for (const attribute of ['src', 'data-src', 'data-video', 'data-video-src', 'data-video-url', 'data-url']) candidates.push($(element).attr(attribute));
+    const sourceSet = $(element).attr('srcset');
+    if (sourceSet) candidates.push(sourceSet.split(',')[0].trim().split(/\s+/)[0]);
   });
   return [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))];
 }
@@ -580,4 +582,5 @@ app.get('/manifest.webmanifest', (req, res) => res.sendFile(path.join(__dirname,
 app.get('/sw.js', (req, res) => res.type('application/javascript').sendFile(path.join(__dirname, 'sw.js')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'clipgrab.html')));
 if (require.main === module) app.listen(port, () => console.log(`ClipGrab running at http://localhost:${port}`));
+app.extractPageVideos = extractPageVideos;
 module.exports = app;

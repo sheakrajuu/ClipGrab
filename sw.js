@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clipgrab-shell-v1';
+const CACHE_NAME = 'clipgrab-shell-v2';
 const MEDIA_CACHE_NAME = 'clipgrab-media-v1';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/favicon.ico', '/icons/icon-180x180.png', '/icons/icon-192x192.png', '/icons/icon-384x384.png', '/icons/icon-512x512.png'];
 let offlineEnabled = false;
@@ -9,7 +9,7 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME && key !== MEDIA_CACHE_NAME).map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
 
 self.addEventListener('message', event => {
