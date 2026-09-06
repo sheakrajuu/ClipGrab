@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" id="description" content="ClipGrab helps you find and save public media from supported websites.">
+<link rel="canonical" id="canonical" href="/">
+<title id="page-title">ClipGrab</title>
+<style>
+:root{font-family:Inter,system-ui,sans-serif;color:#15191b;background:#f5f6fa;line-height:1.6}body{margin:0}.shell{max-width:900px;margin:auto;padding:28px 22px 64px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:72px}a{color:#4d681d;text-decoration:none;font-weight:700}h1{font:700 clamp(36px,6vw,64px)/1.02 Georgia,serif;letter-spacing:0;margin:0 0 18px;max-width:720px}h2{font-size:23px;margin:52px 0 10px}p,li{color:#5f6869;font-size:17px;max-width:68ch}.eyebrow{color:#738d31;font:700 12px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;margin-bottom:16px}.hero{background:#101316;color:#fff;border-radius:14px;padding:42px 36px;margin-bottom:32px}.hero p{color:#c7cad0}.cta{display:inline-block;background:#c8f35a;color:#101316;border-radius:7px;padding:11px 16px;margin-top:8px}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.step{background:#fff;border:1px solid #e0e4d8;border-radius:10px;padding:18px}.step b{display:block;color:#15191b;margin-bottom:4px}@media(max-width:650px){header{margin-bottom:42px}.hero{padding:28px 22px}.steps{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="shell">
+<header><a href="/">ClipGrab</a><a href="/">Open app</a></header>
+<section class="hero"><div class="eyebrow" id="eyebrow">ClipGrab</div><h1 id="heading">Find public media from the web</h1><p id="intro">Paste a public link, review the available media, and save what you are allowed to use.</p><a class="cta" href="/">Open ClipGrab</a></section>
+<section><h2>How it works</h2><div class="steps"><div class="step"><b>1. Paste a public URL</b><span>Use a page link or a direct image, video, or audio URL.</span></div><div class="step"><b>2. Review the results</b><span>Choose Auto detect, Images, Videos, Audio, or All media.</span></div><div class="step"><b>3. Save or keep offline</b><span>Download media or explicitly keep previews for offline viewing.</span></div></div></section>
+<section><h2>Use it responsibly</h2><p>ClipGrab is for public media you own or have permission to save. Availability depends on the source website, its access rules, and the formats it exposes.</p></section>
+</main>
+<script>
+const pages={
+ '/tiktok-downloader':{eyebrow:'TikTok downloader',heading:'Save public TikTok videos',intro:'Paste a public TikTok link into ClipGrab, review the available formats, and save the video you are allowed to use.',description:'Save public TikTok videos with ClipGrab. Review available formats and download media you own or have permission to use.'},
+ '/instagram-downloader':{eyebrow:'Instagram downloader',heading:'Save public Instagram media',intro:'Find public Instagram photos, reels, and videos from a copied post link.',description:'Find public Instagram photos, reels, and videos with ClipGrab.'},
+ '/web-image-downloader':{eyebrow:'Web image downloader',heading:'Find images on public web pages',intro:'Scan a public page for images, filter the results, open a focused gallery, and keep selected previews offline.',description:'Find and review images from public web pages with ClipGrab.'},
+ '/video-url-downloader':{eyebrow:'Video URL downloader',heading:'Download a video URL',intro:'Paste a direct video URL or public page, choose a format, and save the available video.',description:'Download public video URLs with ClipGrab.'},
+ '/public-media-downloader':{eyebrow:'Public media downloader',heading:'Find media from public websites',intro:'Use Auto detect to find public images, videos, and audio, then review and save the media you are allowed to use.',description:'Find public images, videos, and audio from supported websites with ClipGrab.'}
+};
+const page=pages[location.pathname]||pages['/public-media-downloader'];
+document.title=page.eyebrow+' — ClipGrab';document.getElementById('eyebrow').textContent=page.eyebrow;document.getElementById('heading').textContent=page.heading;document.getElementById('intro').textContent=page.intro;document.getElementById('description').setAttribute('content',page.description);document.getElementById('canonical').setAttribute('href',location.href);
+</script>
+</body>
+</html>

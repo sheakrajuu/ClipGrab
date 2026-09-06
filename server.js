@@ -88,6 +88,7 @@ app.use((req, res, next) => {
 });
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/favicon.svg', (req, res) => res.sendFile(path.join(__dirname, 'favicon.svg')));
+app.get(['/tiktok-downloader', '/instagram-downloader', '/web-image-downloader', '/video-url-downloader', '/public-media-downloader'], (req, res) => res.sendFile(path.join(__dirname, 'seo.html')));
 
 function parseUrl(value) {
   if (typeof value !== 'string' || value.length === 0 || value.length > maxUrlLength) {
@@ -104,7 +105,7 @@ function downloadFileName(value, fallback, extension) {
 }
 
 function logStage(stage, parsed, details = '') {
-  const target = parsed ? `${parsed.origin}${parsed.pathname}` : 'unknown URL';
+  const target = parsed ? parsed.hostname : 'unknown host';
   console.info(`[clipgrab] ${stage} ${target}${details ? ` - ${details}` : ''}`);
 }
 
@@ -217,12 +218,14 @@ function webMediaData(parsed, requestedMediaType, imageUrls = [], videoUrls = []
 
 async function directMediaType(parsed) {
   if (/\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) return 'video';
+  if (/\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?.*)?$/i.test(parsed.pathname)) return 'audio';
   if (/\.(jpg|jpeg|png|gif|webp|avif)(\?.*)?$/i.test(parsed.pathname)) return 'image';
   try {
     const response = await fetch(parsed, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(directTypeTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
     const contentType = response.headers.get('content-type') || '';
     if (/^image\//i.test(contentType)) return 'image';
     if (/^video\//i.test(contentType)) return 'video';
+    if (/^audio\//i.test(contentType)) return 'audio';
   } catch {}
   return null;
 }
@@ -373,9 +376,11 @@ app.post('/api/media', async (req, res) => {
     if (directType && !['auto', 'all', directType].includes(requestedMediaType)) {
       throw new Error(`This URL contains a ${directType}; choose ${directType} mode or Auto detect.`);
     }
-    if (directType === 'image' || directType === 'video') {
+    if (directType === 'image' || directType === 'video' || directType === 'audio') {
       const isImage = directType === 'image';
+      const isAudio = directType === 'audio';
       const data = { title: path.basename(parsed.pathname) || 'Direct media', source: 'direct', count: 1, scan: { host: parsed.hostname, mode: requestedMediaType, images: isImage ? 1 : 0, videos: isImage ? 0 : 1, audio: 0 }, items: [{ index: 1, title: path.basename(parsed.pathname) || (isImage ? 'Image' : 'Video'), thumbnail: isImage ? previewUrl(parsed.toString()) : '', type: isImage ? 'image' : 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: isImage ? { image: downloadUrl(parsed.toString(), 'image', 1) } : { video: downloadUrl(parsed.toString(), 'video', 1), audio: downloadUrl(parsed.toString(), 'audio', 1) } }] };
+      if (isAudio) { data.scan = { host: parsed.hostname, mode: requestedMediaType, images: 0, videos: 0, audio: 1 }; data.items[0] = { index: 1, title: path.basename(parsed.pathname) || 'Audio', thumbnail: '', type: 'audio', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { audio: downloadUrl(parsed.toString(), 'audio', 1) } }; }
       metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     }
@@ -462,8 +467,9 @@ app.get('/api/download', async (req, res) => {
       const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(upstreamTimeoutMs), headers });
       if (!upstream.ok || !upstream.body) throw new Error('The media file could not be fetched.');
       const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-      if (!(format === 'image' ? /^image\// : /^video\//).test(contentType)) throw new Error('The source did not return a valid media file.');
-      const extension = contentType.startsWith('image/') ? contentType.split('/')[1].split(';')[0].replace('jpeg', 'jpg') : path.extname(parsed.pathname).slice(1).toLowerCase() || 'mp4';
+      const expectedType = format === 'image' ? /^image\// : format === 'audio' ? /^audio\// : /^video\//;
+      if (!expectedType.test(contentType)) throw new Error('The source did not return a valid media file.');
+      const extension = contentType.startsWith('image/') ? contentType.split('/')[1].split(';')[0].replace('jpeg', 'jpg') : path.extname(parsed.pathname).slice(1).toLowerCase() || (contentType.startsWith('audio/') ? 'm4a' : 'mp4');
       res.setHeader('Content-Disposition', `attachment; filename="${downloadFileName(req.query.name, 'clipgrab-media', extension)}"`);
       res.setHeader('Content-Type', contentType);
       const contentLength = upstream.headers.get('content-length');

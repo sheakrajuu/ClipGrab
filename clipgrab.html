@@ -52,6 +52,9 @@
     gap:16px;
     flex-wrap:wrap;
   }
+  .header-tools{display:flex;align-items:center;gap:14px;}
+  .settings-btn{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:8px 10px;font:600 12px Inter,sans-serif;cursor:pointer;}
+  .settings-btn:hover{border-color:var(--accent);color:var(--accent);}
   .logo{
     font-family:'Space Grotesk',sans-serif;
     font-weight:700;
@@ -174,7 +177,8 @@
   .saved-url-form input:focus{border-color:var(--accent);}
   .save-url-btn{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:7px 10px;font:600 12px Inter,sans-serif;cursor:pointer;}
   .save-url-btn:hover{border-color:var(--accent);color:var(--accent);}
-  .saved-url-list{display:flex;flex-direction:column;gap:6px;}
+  .saved-url-list{display:flex;flex-direction:column;gap:6px;max-height:176px;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;padding-right:2px;}
+  .saved-url-list::-webkit-scrollbar{width:0;height:0;display:none;background:transparent;}
   .saved-url-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.07);border-radius:8px;padding:8px 10px;}
   .saved-url-load{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:0;background:transparent;color:#E8EAF2;text-align:left;font:600 12px Inter,sans-serif;cursor:pointer;}
   .saved-url-load span{display:block;overflow:hidden;text-overflow:ellipsis;color:#8B8FA3;font-size:11px;font-weight:400;margin-top:2px;}
@@ -270,6 +274,19 @@
   .gallery-nav{position:absolute;top:50%;z-index:2;transform:translateY(-50%);width:44px;height:44px;border:1px solid rgba(255,255,255,.2);border-radius:50%;background:rgba(16,19,22,.72);color:#fff;font-size:20px;cursor:pointer;}
   .gallery-nav:hover{background:var(--accent);color:var(--bg);}
   .gallery-prev{left:18px;}.gallery-next{right:18px;}
+  .privacy-modal{position:fixed;inset:0;z-index:40;background:rgba(10,12,14,.82);display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);}
+  .privacy-modal[hidden]{display:none !important;}
+  .privacy-modal.open{display:flex;}
+  .privacy-dialog{width:min(640px,100%);max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:none;background:var(--bg);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:20px;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+  .privacy-dialog::-webkit-scrollbar{width:0;height:0;display:none;background:transparent;}
+  .privacy-intro{color:#AEB2C4;font-size:13px;line-height:1.6;margin:10px 0 16px;max-width:58ch;text-align:left;}
+  .privacy-toggle{display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px;align-items:center;max-width:400px;margin:0 auto;border-top:1px solid rgba(255,255,255,.12);padding:12px 0;cursor:pointer;}
+  .privacy-toggle input{width:20px;height:20px;margin:0;accent-color:var(--accent);}
+  .privacy-toggle > span{text-align:left;}
+  .privacy-toggle b{display:block;font-size:13px;}.privacy-toggle small{display:block;color:#AEB2C4;font-size:11px;margin-top:2px;line-height:1.35;}
+  .danger-btn{border:1px solid #d98275;border-radius:8px;background:rgba(124,47,38,.2);color:#ffb3a8;padding:11px 13px;font:700 12px Inter,sans-serif;cursor:pointer;margin-top:8px;}
+  .danger-btn:hover{background:#542923;}
+  .privacy-note{color:#AEB2C4;font-size:12px;min-height:18px;margin:12px 0 0;}
   .gallery-close{position:absolute;top:16px;right:18px;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#101316;font-size:25px;line-height:1;cursor:pointer;z-index:1;}
   .video-viewer{position:fixed;inset:0;z-index:21;background:rgba(10,12,14,.96);display:none;align-items:center;justify-content:center;padding:clamp(18px,5vw,64px);}
   .video-viewer.open{display:flex;}
@@ -525,6 +542,7 @@
     .gallery-close{top:10px;right:10px;}
     .web-download-inner{align-items:stretch;flex-direction:column;padding:22px;}.web-cta{text-align:center;}
     .promo-inner{flex-direction:column;align-items:flex-start;}
+    .header-tools{gap:8px;}.settings-btn{font-size:11px;padding:7px 8px;}
   }
 </style>
 </head>
@@ -581,7 +599,7 @@
     },
     Reddit: {
       title: "Reddit media",
-      sub: "Use Web mode for public Reddit media. Some posts may not resolve.",
+      sub: "Use the Web scanner for public Reddit media. Some posts may not resolve.",
       placeholder: "Paste a Reddit post link here",
       steps: [
         "Open the post, tap Share, then Copy Link.",
@@ -590,13 +608,13 @@
       ]
     },
     Web: {
-      title: "Download from any public website",
-      sub: "Paste a page or direct media URL from across the web.",
-      placeholder: "Paste any public website or media link here",
+      title: "Find media on any public website",
+      sub: "Scan a public page for images, videos, and audio, then choose what to keep.",
+      placeholder: "Paste a public page or direct media URL",
       steps: [
-        "Copy the address of the public page or media file.",
-        "Paste it into the link box above and hit Find media.",
-        "Choose an available item, format, and resolution to download."
+        "Copy the address of a public page or direct media file.",
+        "Choose Auto detect, All media, Images, Videos, or Audio in the Web scanner.",
+        "Review the scan, filter the results, then download or keep media offline."
       ]
     }
   };
@@ -642,6 +660,14 @@
   const historyClear = document.getElementById('history-clear');
   const shareButton = document.getElementById('share-btn');
   const installButton = document.getElementById('install-btn');
+  const settingsButton = document.getElementById('settings-btn');
+  const privacyModal = document.getElementById('privacy-modal');
+  const privacyClose = document.getElementById('privacy-close');
+  const privateMode = document.getElementById('private-mode');
+  const noHistoryMode = document.getElementById('no-history-mode');
+  const offlineMode = document.getElementById('offline-mode');
+  const deleteLocalData = document.getElementById('delete-local-data');
+  const privacyStatus = document.getElementById('privacy-status');
   let galleryIndex = 0;
   let galleryTouchStartX = 0;
   let galleryImages = [];
@@ -668,8 +694,24 @@
   const hiddenImagesKey = 'clipgrab-hidden-images-v1';
   const historyKey = 'clipgrab-history-v1';
   const webResultsCacheKey = 'clipgrab-web-results-cache-v1';
+  const privacySettingsKey = 'clipgrab-privacy-settings-v1';
+  const offlineCacheName = 'clipgrab-media-v1';
+
+  function readPrivacySettings() {
+    try { return { privateMode: false, noHistory: false, offline: false, ...JSON.parse(localStorage.getItem(privacySettingsKey) || '{}') }; } catch { return { privateMode: false, noHistory: false, offline: false }; }
+  }
+
+  function privacySettings() { return readPrivacySettings(); }
+
+  function savePrivacySettings(settings) {
+    try { localStorage.setItem(privacySettingsKey, JSON.stringify(settings)); } catch {}
+    navigator.serviceWorker?.controller?.postMessage({ type: 'offline-setting', enabled: Boolean(settings.offline && !settings.privateMode) });
+  }
+
+  function localPersistenceAllowed() { return !privacySettings().privateMode; }
 
   function saveState(state) {
+    if (!localPersistenceAllowed()) return;
     try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch {}
   }
 
@@ -682,6 +724,7 @@
   }
 
   function saveSectionState(platform = selectedPlatform) {
+    if (!localPersistenceAllowed()) return;
     const state = readState();
     if (!state) return;
     const states = readSectionStates();
@@ -701,6 +744,7 @@
   }
 
   function saveSavedUrls(urls) {
+    if (privacySettings().privateMode || privacySettings().noHistory) return;
     try { localStorage.setItem(savedUrlsKey, JSON.stringify(urls)); } catch {}
   }
 
@@ -709,6 +753,7 @@
   }
 
   function saveHistory(entries) {
+    if (privacySettings().privateMode || privacySettings().noHistory) return;
     try { localStorage.setItem(historyKey, JSON.stringify(entries.slice(0, 8))); } catch {}
   }
 
@@ -719,6 +764,7 @@
   }
 
   function recordHistory(url, platform, name = '') {
+    if (privacySettings().privateMode || privacySettings().noHistory) return;
     const entries = [{ url, platform, name: name || (() => { try { return new URL(url).hostname; } catch { return 'Recent link'; } })(), savedAt: Date.now() }, ...readHistory().filter(entry => entry.url !== url)];
     saveHistory(entries);
     renderHistory();
@@ -793,7 +839,7 @@
       option.classList.toggle('active', active);
       option.setAttribute('aria-pressed', String(active));
     });
-    mediaTypeHint.textContent = ({ auto: 'Auto detect finds public images, videos, and audio sources.', all: 'All media scans every supported media type on the page.', image: 'Image mode skips video and audio discovery.', video: 'Video mode skips image and audio discovery.', audio: 'Audio mode checks audio tags and public audio sources.' })[selectedWebMediaType];
+    mediaTypeHint.textContent = ({ auto: 'Scan a public page and ClipGrab will find images, videos, and audio it can access.', all: 'Scan every supported media type on the page.', image: 'Show images only and skip video and audio discovery.', video: 'Show videos only and skip image and audio discovery.', audio: 'Show audio sources only.' })[selectedWebMediaType];
     renderSavedUrls();
   }
 
@@ -815,6 +861,7 @@
   }
 
   function cacheWebResult(url, data, mediaType = selectedWebMediaType) {
+    if (privacySettings().privateMode) return;
     try {
       const cache = readWebResultsCache();
       cache[`${mediaType}:${url}`] = { savedAt: Date.now(), data };
@@ -924,6 +971,26 @@
       button.textContent = 'Retry download';
     } finally {
       setTimeout(() => { button.disabled = false; if (button.textContent === 'Downloaded') button.textContent = originalLabel; }, 1500);
+    }
+  }
+
+  async function keepMediaOffline(target, button) {
+    const settings = privacySettings();
+    if (settings.privateMode || !settings.offline) {
+      privacyStatus.textContent = settings.privateMode ? 'Private mode prevents offline storage.' : 'Enable Allow offline media first.';
+      openPrivacySettings();
+      return;
+    }
+    try {
+      const response = await fetch(target);
+      if (!response.ok) throw new Error('Media could not be saved offline.');
+      const cache = await caches.open(offlineCacheName);
+      await cache.put(target, response.clone());
+      button.textContent = 'Saved offline';
+      button.disabled = true;
+      setResultStatus('This media is available offline.', 'success');
+    } catch (error) {
+      setResultStatus(error.message || 'Offline save failed.', 'error');
     }
   }
 
@@ -1038,9 +1105,11 @@
           : (tooLong ? '<div class="result-thumb"></div>' : `<video controls preload="metadata"${item.thumbnail ? ` poster="${escapeHtml(item.thumbnail)}"` : ''} src="${escapeHtml(item.downloads.video)}&preview=1"></video>`);
       const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
       const mediaMeta = [item.fileType || item.type?.toUpperCase(), item.sourceDomain].filter(Boolean).join(' · ');
+      const offlineTarget = item.type === 'image' ? item.thumbnail : item.downloads?.[item.type === 'audio' ? 'audio' : 'video'] ? `${item.downloads[item.type === 'audio' ? 'audio' : 'video']}&preview=1` : '';
+      const offlineButton = offlineTarget ? `<button class="external-download offline-save" type="button" data-offline-url="${escapeHtml(offlineTarget)}">Keep offline</button>` : '';
       const galleryTile = galleryMode && item.type === 'image' ? ' gallery-tile' : '';
       const hideButton = galleryTile ? `<button class="hide-image" type="button" data-hide-id="${escapeHtml(item.id)}" aria-label="Hide this image">Hide</button>` : '';
-      return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div><div class="media-meta">${escapeHtml(mediaMeta)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : `<input class="file-name" type="text" placeholder="Optional file name" aria-label="Optional file name">${formats}${resolutions}<div class="progress-track" aria-hidden="true"><div class="progress-bar"></div></div>`}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${snapVidFallback}</div></div></article>`;
+      return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div><div class="media-meta">${escapeHtml(mediaMeta)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : `<input class="file-name" type="text" placeholder="Optional file name" aria-label="Optional file name">${formats}${resolutions}<div class="progress-track" aria-hidden="true"><div class="progress-bar"></div></div>`}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${offlineButton}${snapVidFallback}</div></div></article>`;
     }).join('') + previousWindow + (hasMoreItems
       ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">${selectedPlatform === 'Web' ? `Load next ${isWebVideo ? 'video' : '10 images'} (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)` : `Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)`}</button>`
       : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
@@ -1202,8 +1271,8 @@
     try {
       const detectedPlatform = detectPlatform(value);
       const selectedName = selectedPlatform === 'Twitter' ? 'X' : selectedPlatform;
-      if (selectedPlatform === 'Reddit') throw new Error('Select Web mode to try the Reddit link.');
-      if (selectedPlatform === 'Pinterest') throw new Error('Select Web mode to download Pinterest media.');
+      if (selectedPlatform === 'Reddit') throw new Error('Select the Web scanner to try the Reddit link.');
+      if (selectedPlatform === 'Pinterest') throw new Error('Select the Web scanner to download Pinterest media.');
       if (selectedPlatform !== 'Web' && detectedPlatform !== selectedName) {
         throw new Error(`This box is set to ${selectedPlatform}. Select ${detectedPlatform} or choose Web for another site.`);
       }
@@ -1319,6 +1388,8 @@
       openVideoViewer(mediaVideo);
       return;
     }
+    const offlineButton = e.target.closest('.offline-save');
+    if (offlineButton) { keepMediaOffline(offlineButton.dataset.offlineUrl, offlineButton); return; }
     const button = e.target.closest('.media-download');
     if (!button) return;
     const item = button.closest('.media-item');
@@ -1445,9 +1516,61 @@
       window.scrollTo(0, webToolsScrollY);
     }
   }
+  let privacyPreviousFocus = null;
+  function openPrivacySettings() {
+    privacyPreviousFocus = document.activeElement;
+    const settings = privacySettings();
+    privateMode.checked = settings.privateMode;
+    noHistoryMode.checked = settings.noHistory;
+    offlineMode.checked = settings.offline && !settings.privateMode;
+    privacyModal.hidden = false;
+    privacyModal.classList.add('open');
+    privacyModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('viewer-open');
+    privacyClose.focus();
+  }
+  function closePrivacySettings() {
+    privacyModal.classList.remove('open');
+    privacyModal.setAttribute('aria-hidden', 'true');
+    privacyModal.hidden = true;
+    if (!webToolsModal.classList.contains('open') && !galleryViewer.classList.contains('open') && !videoViewer.classList.contains('open')) document.body.classList.remove('viewer-open');
+    privacyPreviousFocus?.focus();
+  }
   document.getElementById('web-tools-close').addEventListener('click', closeWebTools);
   webToolsModal.addEventListener('click', event => {
     if (event.target === webToolsModal) closeWebTools();
+  });
+  settingsButton.addEventListener('click', openPrivacySettings);
+  privacyClose.addEventListener('click', closePrivacySettings);
+  privacyModal.addEventListener('click', event => { if (event.target === privacyModal) closePrivacySettings(); });
+  function updatePrivacySetting(key, value) {
+    const settings = privacySettings();
+    settings[key] = value;
+    if (key === 'privateMode' && value) {
+      settings.offline = false;
+      [storageKey, sectionStatesKey, savedUrlsKey, historyKey, webResultsCacheKey].forEach(item => { try { localStorage.removeItem(item); } catch {} });
+      caches.delete(offlineCacheName).catch(() => {});
+      navigator.serviceWorker?.controller?.postMessage({ type: 'clear-offline' });
+      renderHistory();
+      renderSavedUrls();
+    }
+    if (key === 'noHistory' && value) {
+      [savedUrlsKey, historyKey].forEach(item => { try { localStorage.removeItem(item); } catch {} });
+      renderHistory();
+      renderSavedUrls();
+    }
+    savePrivacySettings(settings);
+    privacyStatus.textContent = 'Privacy settings updated.';
+  }
+  privateMode.addEventListener('change', () => updatePrivacySetting('privateMode', privateMode.checked));
+  noHistoryMode.addEventListener('change', () => updatePrivacySetting('noHistory', noHistoryMode.checked));
+  offlineMode.addEventListener('change', () => updatePrivacySetting('offline', offlineMode.checked));
+  deleteLocalData.addEventListener('click', async () => {
+    [storageKey, sectionStatesKey, savedUrlsKey, hiddenImagesKey, historyKey, webResultsCacheKey].forEach(item => { try { localStorage.removeItem(item); } catch {} });
+    try { await caches.delete(offlineCacheName); } catch {}
+    navigator.serviceWorker?.controller?.postMessage({ type: 'clear-offline' });
+    renderHistory();
+    privacyStatus.textContent = 'All local history, saved links, results, and offline media were deleted.';
   });
   savedUrlList.addEventListener('click', event => {
     const removeButton = event.target.closest('.saved-url-remove');
@@ -1525,7 +1648,7 @@
   let deferredInstallPrompt;
   window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); deferredInstallPrompt = event; installButton.hidden = false; });
   installButton.addEventListener('click', async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; installButton.hidden = true; });
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready).then(registration => registration.active?.postMessage({ type: 'offline-setting', enabled: privacySettings().offline && !privacySettings().privateMode })).catch(() => {});
 
   const savedState = readState();
   renderSavedUrls();
