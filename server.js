@@ -88,8 +88,7 @@ app.use((req, res, next) => {
 });
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/icons/favicon.ico', (req, res) => res.type('image/x-icon').sendFile(path.join(__dirname, 'icons', 'favicon.ico')));
-app.get(/^\/icons\/icon-\d+x\d+\.png$/, (req, res) => res.type('image/png').sendFile(path.join(__dirname, req.path)));
-app.get('/icons/icon-maskable.svg', (req, res) => res.type('image/svg+xml').sendFile(path.join(__dirname, 'icons', 'icon-maskable.svg')));
+app.get(/^\/icons\/icon-(?:\d+x\d+|maskable)\.png$/, (req, res) => res.type('image/png').sendFile(path.join(__dirname, req.path)));
 app.get(['/tiktok-downloader', '/instagram-downloader', '/web-image-downloader', '/video-url-downloader', '/public-media-downloader'], (req, res) => res.sendFile(path.join(__dirname, 'seo.html')));
 
 function parseUrl(value) {
