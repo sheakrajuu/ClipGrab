@@ -2,10 +2,14 @@
   <div class="web-tools-dialog">
     <div class="web-tools-dialog-header"><h2 id="web-tools-title">Web tools</h2><button class="web-tools-close" id="web-tools-close" type="button" aria-label="Close Web tools">&times;</button></div>
     <div class="media-type-picker" role="group" aria-label="Media type">
-      <button class="media-type-option active" type="button" data-media-type="image" aria-pressed="true">Image URLs</button>
-      <button class="media-type-option" type="button" data-media-type="video" aria-pressed="false">Video URLs</button>
-      <span id="media-type-hint">Image mode skips video discovery to reduce server work.</span>
+      <button class="media-type-option active" type="button" data-media-type="auto" aria-pressed="true">Auto detect</button>
+      <button class="media-type-option" type="button" data-media-type="all" aria-pressed="false">All media</button>
+      <button class="media-type-option" type="button" data-media-type="image" aria-pressed="false">Images</button>
+      <button class="media-type-option" type="button" data-media-type="video" aria-pressed="false">Videos</button>
+      <button class="media-type-option" type="button" data-media-type="audio" aria-pressed="false">Audio</button>
+      <span id="media-type-hint">Auto detect finds public images, videos, and audio sources.</span>
     </div>
+    <div class="web-filter-panel" aria-label="Result filters"><label>Show <select id="web-filter-type"><option value="all">All results</option><option value="image">Images</option><option value="video">Videos</option><option value="audio">Audio</option></select></label><label>Sort <select id="web-filter-sort"><option value="page">Page order</option><option value="type">Media type</option><option value="title">Title</option></select></label></div>
     <section class="saved-url-section" id="saved-url-section" aria-label="Saved URLs">
       <div class="saved-url-header"><span>Save this URL</span></div>
       <div class="saved-url-form"><input type="text" id="saved-url-name" placeholder="Optional name" maxlength="60" aria-label="Optional name for this URL"><button class="save-url-btn" id="save-url-btn" type="button">Save URL</button></div>
@@ -20,6 +24,7 @@
         <button class="batch-btn" type="submit">Find batch</button>
         <button class="save-url-btn" id="save-batch-btn" type="button">Save batch</button>
       </form>
+      <button class="batch-btn" id="download-all-btn" type="button" disabled>Download all ready</button>
       <div class="batch-status" id="batch-status" aria-live="polite"></div>
     </section>
   </div>
