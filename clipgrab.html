@@ -756,6 +756,7 @@
   let requestCooldownTimer = null;
   const storageKey = 'clipgrab-download-state-v2';
   const sectionStatesKey = 'clipgrab-section-states-v1';
+  const activePlatformKey = 'clipgrab-active-platform-v1';
   const savedUrlsKey = 'clipgrab-saved-urls-v1';
   const hiddenImagesKey = 'clipgrab-hidden-images-v1';
   const historyKey = 'clipgrab-history-v1';
@@ -778,7 +779,15 @@
 
   function saveState(state) {
     if (!localPersistenceAllowed()) return;
-    try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch {}
+    if (!state || typeof state !== 'object') return;
+    const platform = state.platform || selectedPlatform;
+    const nextState = { ...state, platform };
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(nextState));
+      const states = readSectionStates();
+      states[platform] = nextState;
+      localStorage.setItem(sectionStatesKey, JSON.stringify(states));
+    } catch {}
   }
 
   function readState() {
@@ -792,7 +801,7 @@
   function saveSectionState(platform = selectedPlatform) {
     if (!localPersistenceAllowed()) return;
     const state = readState();
-    if (!state) return;
+    if (!state || state.platform !== platform) return;
     const states = readSectionStates();
     states[platform] = { ...state, platform };
     try { localStorage.setItem(sectionStatesKey, JSON.stringify(states)); } catch {}
@@ -1477,6 +1486,9 @@
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       selectedPlatform = tab.dataset.platform;
+      if (localPersistenceAllowed()) {
+        try { localStorage.setItem(activePlatformKey, selectedPlatform); } catch {}
+      }
       const data = platformCopy[tab.dataset.platform];
       heroTitle.textContent = data.title;
       heroSub.textContent = data.sub;
@@ -1499,7 +1511,7 @@
       resultCard.classList.remove('show');
       closeSessionButton.hidden = true;
       mediaGrid.innerHTML = '';
-      saveState(nextState || { platform: selectedPlatform, url: urlInput.value });
+      if (nextState) saveState(nextState);
       if (nextState) restoreResults(nextState);
     });
   });
@@ -1539,6 +1551,7 @@
     if (!urls.length) { status.textContent = 'Add at least one URL.'; return; }
     const invalidUrl = urls.find(value => { try { new URL(value); return false; } catch { return true; } });
     if (invalidUrl) { status.textContent = `${invalidUrl}: Enter a valid URL.`; return; }
+    if (selectedPlatform !== 'Web') setActiveTab('Web');
     batchRequestToken++;
     batchSources = urls.map(url => ({ url, items: null, error: '', loading: false }));
     batchMode = true;
@@ -1797,7 +1810,7 @@
     clearCacheButton.disabled = true;
     try {
       if ('caches' in window) await Promise.all((await caches.keys()).map(name => caches.delete(name)));
-      [storageKey, sectionStatesKey, savedUrlsKey, hiddenImagesKey, historyKey, webResultsCacheKey, privacySettingsKey].forEach(item => { try { localStorage.removeItem(item); } catch {} });
+      [storageKey, sectionStatesKey, activePlatformKey, savedUrlsKey, hiddenImagesKey, historyKey, webResultsCacheKey, privacySettingsKey].forEach(item => { try { localStorage.removeItem(item); } catch {} });
       navigator.serviceWorker?.controller?.postMessage({ type: 'clear-offline' });
       renderHistory();
       renderSavedUrls();
@@ -1872,7 +1885,7 @@
     settings[key] = value;
     if (key === 'privateMode' && value) {
       settings.offline = false;
-      [storageKey, sectionStatesKey, savedUrlsKey, hiddenImagesKey, historyKey, webResultsCacheKey].forEach(item => { try { localStorage.removeItem(item); } catch {} });
+      [storageKey, sectionStatesKey, activePlatformKey, savedUrlsKey, hiddenImagesKey, historyKey, webResultsCacheKey].forEach(item => { try { localStorage.removeItem(item); } catch {} });
       Promise.all(Object.values(offlineCacheNames).map(name => caches.delete(name))).catch(() => {});
       navigator.serviceWorker?.controller?.postMessage({ type: 'clear-offline' });
       renderHistory();
@@ -1949,6 +1962,7 @@
       const savedScrollTop = window.scrollY;
       setWebMediaType(loadButton.dataset.mediaType);
       closeWebTools();
+      if (selectedPlatform !== 'Web') setActiveTab('Web');
       if (loadButton.dataset.batch === 'true') {
         document.getElementById('batch-input').value = loadButton.dataset.url || '';
         batchNameInput.value = loadButton.querySelector('span') ? loadButton.firstChild.textContent.trim() : 'Saved batch';
@@ -2012,13 +2026,13 @@
 
   const savedState = readState();
   renderSavedUrls();
-  if (savedState) {
-    if (savedState.platform && savedState.platform !== selectedPlatform) setActiveTab(savedState.platform);
-    const states = readSectionStates();
-    states[savedState.platform || selectedPlatform] = savedState;
-    try { localStorage.setItem(sectionStatesKey, JSON.stringify(states)); } catch {}
-    urlInput.value = savedState.url || '';
-    restoreResults(savedState);
+  let restoredPlatform = selectedPlatform;
+  try { restoredPlatform = localStorage.getItem(activePlatformKey) || savedState?.platform || selectedPlatform; } catch { restoredPlatform = savedState?.platform || selectedPlatform; }
+  if (restoredPlatform !== selectedPlatform) setActiveTab(restoredPlatform);
+  const restoredState = readSectionState(restoredPlatform) || (savedState?.platform === restoredPlatform ? savedState : null);
+  if (restoredState) {
+    urlInput.value = restoredState.url || '';
+    restoreResults(restoredState);
   }
   document.querySelector('.web-cta').addEventListener('click', () => { document.querySelector('.tab[data-platform="Web"]').click(); urlInput.focus(); });
   document.getElementById('reddit-web-btn').addEventListener('click', () => { document.querySelector('.tab[data-platform="Web"]').click(); urlInput.focus(); });
