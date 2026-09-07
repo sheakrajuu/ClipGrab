@@ -7,12 +7,23 @@ let server;
 let baseUrl;
 let fixtureServer;
 let fixtureUrl;
+let imageFixtureUrl;
 
 test.before(async () => {
   server = app.listen(0);
   await new Promise(resolve => server.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
   fixtureServer = http.createServer((request, response) => {
+    if (request.url === '/image-page') {
+      response.writeHead(200, { 'content-type': 'text/html' });
+      response.end('<meta property="og:image" content="/poster.jpg"><img src="/poster.jpg">');
+      return;
+    }
+    if (request.url === '/poster.jpg') {
+      response.writeHead(200, { 'content-type': 'image/jpeg' });
+      response.end(Buffer.from([255, 216, 255, 217]));
+      return;
+    }
     response.writeHead(200, { 'content-type': 'text/html' });
     response.end('<meta property="og:image" content="/poster.jpg"><video data-video-src="/media/launch.mp4"></video>');
   }).listen(0);
@@ -38,14 +49,15 @@ test('homepage and PWA assets are available', async () => {
   ]);
   assert.equal(page.status, 200);
   assert.match(await page.text(), /ClipGrab/);
+  imageFixtureUrl = `http://127.0.0.1:${fixtureServer.address().port}/image-page`;
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
   assert.equal(manifestData.short_name, 'ClipGrab');
-  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-maskable.png?v=4' && icon.purpose === 'any maskable'));
+  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-512x512.png?v=5' && icon.sizes === '512x512' && icon.purpose === 'any'));
   assert.equal(worker.status, 200);
   const workerText = await worker.text();
-  assert.match(workerText, /clipgrab-shell-v4/);
-  assert.match(workerText, /icon-maskable-192\.png\?v=4/);
+  assert.match(workerText, /clipgrab-shell-v5/);
+  assert.match(workerText, /icon-512x512\.png\?v=5/);
   assert.equal(maskableIcon.status, 200);
   assert.match(maskableIcon.headers.get('content-type'), /image\/png/);
 });
@@ -53,6 +65,11 @@ test('homepage and PWA assets are available', async () => {
 test('video extraction finds lazy-loaded video sources', async () => {
   const videos = await app.extractPageVideos(new URL(fixtureUrl));
   assert.deepEqual(videos, [`${new URL(fixtureUrl).origin}/media/launch.mp4`]);
+});
+
+test('image scans return images without invoking the video extractor', async () => {
+  const images = await app.extractPageImages(new URL(imageFixtureUrl));
+  assert.deepEqual(images, [`${new URL(imageFixtureUrl).origin}/poster.jpg`]);
 });
 
 test('focused SEO pages are available with page-specific metadata', async () => {
