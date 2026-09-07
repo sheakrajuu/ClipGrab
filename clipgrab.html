@@ -194,7 +194,7 @@
   .batch-name:focus{border-color:var(--accent);}
   .batch-name-save{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:6px 8px;font:600 11px Inter,sans-serif;cursor:pointer;white-space:nowrap;}
   .batch-name-save:hover{border-color:var(--accent);color:var(--accent);}
-  .batch-form{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:end;}
+  .batch-form{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:stretch;}
   .batch-form textarea{width:100%;min-width:0;min-height:68px;resize:vertical;scrollbar-width:none;border:1px solid rgba(255,255,255,.14);border-radius:7px;background:rgba(255,255,255,.07);color:#fff;padding:9px 10px;font:12px/1.45 Inter,sans-serif;outline:none;}
   .batch-form textarea::-webkit-scrollbar{width:0;height:0;display:none;background:transparent;}
   .batch-form textarea:focus{border-color:var(--accent);}
@@ -208,8 +208,6 @@
   .web-tools-dialog-header h2{font-size:20px;}
   .web-tools-subtitle{display:block;color:#AEB2C4;font-size:12px;margin-top:3px;}
   .web-tools-dialog-actions{display:flex;align-items:center;gap:8px;}
-  .web-tools-session-close{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:8px 10px;font:600 12px Inter,sans-serif;cursor:pointer;}
-  .web-tools-session-close:hover{border-color:var(--accent);color:var(--accent);}
   .web-tools-close{width:34px;height:34px;border:0;border-radius:50%;background:#fff;color:var(--bg);font-size:22px;line-height:1;cursor:pointer;}
   .web-settings-layout{display:grid;grid-template-columns:minmax(128px,28%) minmax(0,1fr);gap:20px;min-height:0;margin-top:24px;}
   .web-settings-nav{display:flex;flex-direction:column;align-items:stretch;gap:4px;border-right:1px solid rgba(255,255,255,.12);padding:0 16px 0 0;}
@@ -314,6 +312,14 @@
   .privacy-note{color:#AEB2C4;font-size:12px;min-height:18px;margin:12px 0 0;}
   .cache-summary{display:grid;gap:10px;color:#E8EAF2;font-size:14px;line-height:1.5;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:16px;}
   .cache-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
+  .jump-overlay{position:fixed;inset:0;z-index:40;display:none;place-items:center;padding:24px;background:rgba(12,16,14,.42);backdrop-filter:blur(10px);}
+  .jump-overlay.open{display:grid;animation:jump-fade-in .18s ease-out both;}
+  .jump-dialog{display:grid;gap:8px;min-width:min(360px,100%);padding:24px;border:1px solid rgba(255,255,255,.18);border-radius:14px;background:#202923;color:#fff;box-shadow:0 24px 80px rgba(0,0,0,.35);text-align:center;}
+  .jump-dialog strong{font:700 19px 'Space Grotesk',sans-serif;}
+  .jump-dialog span:last-child{color:#BFC8BE;font-size:12px;}
+  .jump-spinner{width:28px;height:28px;margin:0 auto 4px;border:3px solid rgba(200,243,90,.25);border-top-color:var(--accent);border-radius:50%;animation:jump-spin .8s linear infinite;}
+  @keyframes jump-spin{to{transform:rotate(360deg)}}
+  @keyframes jump-fade-in{from{opacity:0}to{opacity:1}}
   .gallery-close{position:absolute;top:16px;right:18px;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#101316;font-size:25px;line-height:1;cursor:pointer;z-index:1;}
   .video-viewer{position:fixed;inset:0;z-index:21;background:rgba(10,12,14,.96);display:none;align-items:center;justify-content:center;padding:clamp(18px,5vw,64px);}
   .video-viewer.open{display:flex;}
@@ -682,12 +688,12 @@
   const fetchSubmitButton = document.querySelector('#fetch-form button[type="submit"]');
   const savedUrlSection = document.getElementById('saved-url-section');
   const savedUrlName = document.getElementById('saved-url-name');
+  const saveCurrentUrlButton = document.getElementById('save-current-url-btn');
   const savedUrlList = document.getElementById('saved-url-list');
   const savedBatchList = document.getElementById('saved-batch-list');
   const batchSection = document.getElementById('batch-section');
   const batchToggle = document.getElementById('batch-toggle');
   const batchNameInput = document.getElementById('batch-name');
-  const downloadAllButton = document.getElementById('download-all-btn');
   const mediaTypeOptions = document.querySelectorAll('.media-type-option');
   const savedFilterOptions = document.querySelectorAll('.saved-filter-option');
   const settingsNavItems = document.querySelectorAll('.web-settings-nav-item');
@@ -700,7 +706,6 @@
   const unhideImagesButton = document.getElementById('unhide-images-btn');
   const settingsButton = document.getElementById('settings-btn');
   const webToolsModal = document.getElementById('web-tools-modal');
-  const webToolsSessionClose = document.getElementById('web-tools-session-close');
   const galleryViewer = document.getElementById('gallery-viewer');
   const galleryTrack = document.getElementById('gallery-track');
   const videoViewer = document.getElementById('video-viewer');
@@ -722,6 +727,12 @@
   const cacheStatus = document.getElementById('cache-status');
   const refreshCacheButton = document.getElementById('refresh-cache-btn');
   const clearCacheButton = document.getElementById('clear-cache-btn');
+  const clearImageCacheButton = document.getElementById('clear-image-cache-btn');
+  const clearVideoCacheButton = document.getElementById('clear-video-cache-btn');
+  const clearAudioCacheButton = document.getElementById('clear-audio-cache-btn');
+  const jumpOverlay = document.getElementById('jump-overlay');
+  const jumpOverlayTitle = document.getElementById('jump-overlay-title');
+  const jumpOverlayDetail = document.getElementById('jump-overlay-detail');
   let galleryIndex = 0;
   let galleryImages = [];
   let viewerScrollY = 0;
@@ -750,7 +761,7 @@
   const historyKey = 'clipgrab-history-v1';
   const webResultsCacheKey = 'clipgrab-web-results-cache-v1';
   const privacySettingsKey = 'clipgrab-privacy-settings-v1';
-  const offlineCacheName = 'clipgrab-media-v1';
+  const offlineCacheNames = { image: 'clipgrab-image-cache-v1', video: 'clipgrab-video-cache-v1', audio: 'clipgrab-audio-cache-v1' };
 
   function readPrivacySettings() {
     try { return { privateMode: false, noHistory: false, offline: false, ...JSON.parse(localStorage.getItem(privacySettingsKey) || '{}') }; } catch { return { privateMode: false, noHistory: false, offline: false }; }
@@ -814,7 +825,7 @@
 
   function renderHistory() {
     const entries = readHistory();
-    historyPanel.hidden = entries.length === 0;
+    historyPanel.hidden = true;
     historyList.innerHTML = entries.map((entry, index) => `<button class="history-item" type="button" data-history-index="${index}" title="${escapeHtml(entry.url)}">${escapeHtml(entry.name || entry.platform || 'Recent link')}</button>`).join('');
     if (settingsHistoryList) {
       settingsHistoryList.innerHTML = entries.length
@@ -1106,12 +1117,18 @@
       return;
     }
     try {
+      const mediaType = button.dataset.offlineType || 'video';
+      const cache = await caches.open(offlineCacheNames[mediaType]);
+      if (await cache.match(target)) {
+        await cache.delete(target);
+        button.textContent = 'Keep offline';
+        setResultStatus('Offline copy deleted.', 'success');
+        return;
+      }
       const response = await fetch(target);
       if (!response.ok) throw new Error('Media could not be saved offline.');
-      const cache = await caches.open(offlineCacheName);
       await cache.put(target, response.clone());
-      button.textContent = 'Saved offline';
-      button.disabled = true;
+      button.textContent = `Delete ${mediaType} cache`;
       setResultStatus('This media is available offline.', 'success');
     } catch (error) {
       setResultStatus(error.message || 'Offline save failed.', 'error');
@@ -1131,7 +1148,6 @@
     button.disabled = true;
     let cachedCount = 0;
     try {
-      const cache = await caches.open(offlineCacheName);
       for (let index = 0; index < urls.length; index += 1) {
         button.textContent = `Scanning ${index + 1} of ${urls.length}`;
         const cachedResult = getCachedWebResult(urls[index], mediaType);
@@ -1153,7 +1169,8 @@
             const request = new Request(new URL(target, window.location.origin), { credentials: 'same-origin' });
             if (new URL(request.url).origin !== window.location.origin) continue;
             const response = await fetch(request);
-            if (response.ok) { await cache.put(request, response.clone()); cachedCount += 1; }
+            const itemType = data.items.find(item => [item.thumbnail, item.downloads?.video ? `${item.downloads.video}&preview=1` : '', item.downloads?.audio || ''].includes(target))?.type || 'image';
+            if (response.ok) { await (await caches.open(offlineCacheNames[itemType])).put(request, response.clone()); cachedCount += 1; }
           } catch {}
         }
       }
@@ -1248,7 +1265,6 @@
     } finally {
       if (requestToken === batchRequestToken) {
         source.loading = false;
-        downloadAllButton.disabled = !batchSources.some(entry => entry.items?.length);
         renderBatchSource(sourceIndex);
       }
     }
@@ -1296,7 +1312,7 @@
       const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
       const mediaMeta = [item.fileType || item.type?.toUpperCase(), item.sourceDomain].filter(Boolean).join(' · ');
       const offlineTarget = item.type === 'image' ? item.thumbnail : item.downloads?.[item.type === 'audio' ? 'audio' : 'video'] ? `${item.downloads[item.type === 'audio' ? 'audio' : 'video']}&preview=1` : '';
-      const offlineButton = offlineTarget ? `<button class="external-download offline-save" type="button" data-offline-url="${escapeHtml(offlineTarget)}">Keep offline</button>` : '';
+      const offlineButton = offlineTarget ? `<button class="external-download offline-save" type="button" data-offline-url="${escapeHtml(offlineTarget)}" data-offline-type="${downloadType}">Keep offline</button>` : '';
       const galleryTile = galleryMode && item.type === 'image' ? ' gallery-tile' : '';
       const hideButton = galleryTile ? `<button class="hide-image" type="button" data-hide-id="${escapeHtml(item.id)}" aria-label="Hide this image">Hide</button>` : '';
       return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div><div class="media-meta">${escapeHtml(mediaMeta)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : `<input class="file-name" type="text" placeholder="Optional file name" aria-label="Optional file name">${formats}${resolutions}<div class="progress-track" aria-hidden="true"><div class="progress-bar"></div></div>`}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${offlineButton}${snapVidFallback}</div></div></article>`;
@@ -1343,6 +1359,25 @@
       const top = Math.max(0, mediaGrid.getBoundingClientRect().top + window.scrollY - 16);
       window.scrollTo({ left: 0, top, behavior: 'auto' });
     });
+  }
+
+  async function runJumpTransition(title, action) {
+    jumpOverlayTitle.textContent = title;
+    jumpOverlayDetail.textContent = 'Loading the next media set...';
+    jumpOverlay.classList.add('open');
+    jumpOverlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('viewer-open');
+    const startedAt = Date.now();
+    try {
+      await new Promise(requestAnimationFrame);
+      await action();
+      scrollToMediaStart();
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, 320 - (Date.now() - startedAt))));
+    } finally {
+      jumpOverlay.classList.remove('open');
+      jumpOverlay.setAttribute('aria-hidden', 'true');
+      if (!videoViewer.classList.contains('open') && !galleryViewer.classList.contains('open') && !webToolsModal.classList.contains('open')) document.body.classList.remove('viewer-open');
+    }
   }
 
   function updateGalleryWindow() {
@@ -1454,8 +1489,8 @@
       document.getElementById('fetch-hint').hidden = isReddit;
       resultCard.hidden = isReddit;
       mediaGrid.hidden = isReddit;
-      const isWeb = selectedPlatform === 'Web';
-      savedUrlSection.hidden = !isWeb;
+      savedUrlSection.hidden = false;
+      saveCurrentUrlButton.hidden = false;
       stepsWrap.innerHTML = data.steps.map((s, i) =>
         `<div class="step"><div class="step-num">${i+1}</div><p>${s}</p></div>`
       ).join('');
@@ -1545,11 +1580,13 @@
       }
       const direction = loadMoreButton.dataset.batchDirection;
       if (direction === 'previous' && batchSourceIndex > 0) {
-        fetchBatchSource(batchSourceIndex - 1).then(scrollToMediaStart);
+        const targetIndex = batchSourceIndex - 1;
+        runJumpTransition(`Jumping to URL ${targetIndex + 1}`, () => fetchBatchSource(targetIndex));
         return;
       }
       if (direction === 'next' && batchSourceIndex < batchSources.length - 1) {
-        fetchBatchSource(batchSourceIndex + 1).then(scrollToMediaStart);
+        const targetIndex = batchSourceIndex + 1;
+        runJumpTransition(`Jumping to URL ${targetIndex + 1}`, () => fetchBatchSource(targetIndex));
         return;
       }
       if (loadMoreButton.dataset.fetchAgain === 'true') {
@@ -1566,30 +1603,27 @@
       const webWindow = webWindowSize(visibleItems);
       const isWebVideo = selectedPlatform === 'Web' && webWindow === 1;
       if (loadMoreButton.dataset.webPreviousWindow === 'true') {
-        renderedMediaStart = Math.max(0, renderedMediaStart - webWindowSize(visibleItems));
-        renderedMediaCount = renderedMediaStart === 0
-          ? Math.min(webWindowSize(visibleItems), visibleItems.length)
-          : Math.min(webWindowSize(visibleItems), visibleItems.length - renderedMediaStart);
-        renderMediaBatch(true);
-        scrollToMediaStart();
+        runJumpTransition('Jumping to previous images', async () => {
+          renderedMediaStart = Math.max(0, renderedMediaStart - webWindowSize(visibleItems));
+          renderedMediaCount = renderedMediaStart === 0
+            ? Math.min(webWindowSize(visibleItems), visibleItems.length)
+            : Math.min(webWindowSize(visibleItems), visibleItems.length - renderedMediaStart);
+          renderMediaBatch(true);
+        });
         return;
       }
       if (loadMoreButton.dataset.webNextWindow === 'true') {
-        if (!isWebVideo) {
+        runJumpTransition('Jumping to next remaining images', async () => {
           renderedMediaStart += renderedMediaCount;
-          renderedMediaCount = Math.min(mediaBatchSize, visibleItems.length - renderedMediaStart);
-        } else {
-          renderedMediaStart += renderedMediaCount;
-          renderedMediaCount = Math.min(webWindowSize(visibleItems), visibleItems.length - renderedMediaStart);
-        }
-        renderMediaBatch(true);
-        scrollToMediaStart();
+          renderedMediaCount = Math.min(isWebVideo ? webWindowSize(visibleItems) : mediaBatchSize, visibleItems.length - renderedMediaStart);
+          renderMediaBatch(true);
+        });
         return;
       }
       if (renderedMediaCount < visibleItems.length) {
         renderedMediaCount = Math.min(renderedMediaCount + mediaBatchSize, visibleItems.length);
         renderMediaBatch(true);
-        restoreWindowScroll(scrollTop);
+        restoreWindowScroll(window.scrollY);
       }
       return;
     }
@@ -1686,27 +1720,42 @@
     batchSection.hidden = !batchSection.hidden;
     batchToggle.setAttribute('aria-expanded', String(!batchSection.hidden));
     batchToggle.textContent = batchSection.hidden ? 'Add multiple URLs' : 'Hide multiple URL search';
-    if (!batchSection.hidden) document.getElementById('batch-input').focus();
   });
   setWebMediaType('auto');
-  document.getElementById('save-url-btn').addEventListener('click', () => {
-    if (selectedPlatform !== 'Web') return;
-    const value = urlInput.value.trim();
-    if (!value) return;
-    const name = savedUrlName.value.trim() || (() => { try { return new URL(value).hostname; } catch { return 'Saved URL'; } })();
-    const urls = [{ name, url: value, mediaType: selectedWebMediaType }, ...readSavedUrls().filter(entry => entry.url !== value)].slice(0, 10);
+  function saveUrlEntry(url, name) {
+    const value = url.trim();
+    if (!value) return false;
+    const entryName = name.trim() || (() => { try { return new URL(value).hostname; } catch { return 'Saved URL'; } })();
+    const urls = [{ name: entryName, url: value, mediaType: selectedWebMediaType }, ...readSavedUrls().filter(entry => entry.url !== value)].slice(0, 10);
     saveSavedUrls(urls);
+    return true;
+  }
+
+  function saveBatchEntry(values, name) {
+    if (!values.length) return false;
+    const entryName = name.trim() || `Batch of ${values.length} URLs`;
+    const batches = [{ name: entryName, urls: values, mediaType: selectedWebMediaType }, ...readSavedUrls().filter(entry => JSON.stringify(entry.urls) !== JSON.stringify(values))].slice(0, 10);
+    saveSavedUrls(batches);
+    return true;
+  }
+
+  function refreshSavedUrlsAfterSave() {
     savedUrlName.value = '';
     renderSavedUrls();
+  }
+
+  document.getElementById('save-url-btn').addEventListener('click', () => {
+    if (selectedPlatform !== 'Reddit' && saveUrlEntry(urlInput.value, savedUrlName.value)) refreshSavedUrlsAfterSave();
+  });
+  saveCurrentUrlButton.addEventListener('click', () => {
+    if (selectedPlatform !== 'Reddit' && saveUrlEntry(urlInput.value, '')) {
+      setResultStatus('URL saved in Media Hub.', 'success');
+      refreshSavedUrlsAfterSave();
+    }
   });
   document.getElementById('save-batch-btn').addEventListener('click', () => {
     const urls = document.getElementById('batch-input').value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
-    if (!urls.length) return;
-    const name = savedUrlName.value.trim() || batchNameInput.value.trim() || `Batch of ${urls.length} URLs`;
-    const batches = [{ name, urls, mediaType: selectedWebMediaType }, ...readSavedUrls().filter(entry => JSON.stringify(entry.urls) !== JSON.stringify(urls))].slice(0, 10);
-    saveSavedUrls(batches);
-    savedUrlName.value = '';
-    renderSavedUrls();
+    if (saveBatchEntry(urls, savedUrlName.value || batchNameInput.value)) refreshSavedUrlsAfterSave();
   });
   document.getElementById('rename-batch-btn').addEventListener('click', () => {
     if (!batchSources.length) return;
@@ -1718,26 +1767,6 @@
     saveState(state);
     saveSectionState();
   });
-  downloadAllButton.addEventListener('click', async () => {
-    const status = document.getElementById('batch-status');
-    downloadAllButton.disabled = true;
-    for (let index = 0; index < batchSources.length; index += 1) {
-      if (batchSources[index].items) continue;
-      status.textContent = `Finding URL ${index + 1} of ${batchSources.length}...`;
-      await fetchBatchSource(index);
-    }
-    const ready = batchSources.flatMap(source => (source.items || []).map(item => ({ source, item })));
-    if (!ready.length) { status.textContent = 'No downloadable items were found.'; downloadAllButton.disabled = false; return; }
-    for (let index = 0; index < ready.length; index += 1) {
-      const { source, item } = ready[index];
-      status.textContent = `Downloading ${index + 1} of ${ready.length}...`;
-      const targetType = item.type === 'image' ? 'image' : item.type === 'audio' ? 'audio' : 'video';
-      const target = item.downloads?.[targetType];
-      if (target) await downloadFile(target, downloadAllButton, `${safeFileName(item.title, `clipgrab-${index + 1}`)}.${targetType === 'image' ? 'jpg' : targetType === 'audio' ? 'mp3' : 'mp4'}`);
-    }
-    status.textContent = `Finished ${ready.length} download${ready.length === 1 ? '' : 's'}.`;
-    downloadAllButton.disabled = false;
-  });
   unhideImagesButton.addEventListener('click', () => {
     try { localStorage.removeItem(hiddenImagesKey); } catch {}
     updateUnhideButton();
@@ -1748,6 +1777,22 @@
   settingsBack.addEventListener('click', showSettingsSections);
   savedFilterOptions.forEach(option => option.addEventListener('click', () => setSavedFilter(option.dataset.savedFilter)));
   refreshCacheButton.addEventListener('click', updateCacheSummary);
+  async function clearMediaCache(mediaType) {
+    const button = ({ image: clearImageCacheButton, video: clearVideoCacheButton, audio: clearAudioCacheButton })[mediaType];
+    if (button) button.disabled = true;
+    try {
+      await caches.delete(offlineCacheNames[mediaType]);
+      cacheStatus.textContent = `${mediaType[0].toUpperCase() + mediaType.slice(1)} cache deleted.`;
+      await updateCacheSummary();
+    } catch {
+      cacheStatus.textContent = `The ${mediaType} cache could not be deleted.`;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+  clearImageCacheButton.addEventListener('click', () => clearMediaCache('image'));
+  clearVideoCacheButton.addEventListener('click', () => clearMediaCache('video'));
+  clearAudioCacheButton.addEventListener('click', () => clearMediaCache('audio'));
   clearCacheButton.addEventListener('click', async () => {
     clearCacheButton.disabled = true;
     try {
@@ -1819,7 +1864,6 @@
   }
   document.getElementById('web-tools-close').addEventListener('click', closeWebTools);
   closeSessionButton.addEventListener('click', closeSession);
-  webToolsSessionClose.addEventListener('click', closeSession);
   webToolsModal.addEventListener('click', event => {
     if (event.target === webToolsModal) closeWebTools();
   });
@@ -1829,7 +1873,7 @@
     if (key === 'privateMode' && value) {
       settings.offline = false;
       [storageKey, sectionStatesKey, savedUrlsKey, hiddenImagesKey, historyKey, webResultsCacheKey].forEach(item => { try { localStorage.removeItem(item); } catch {} });
-      caches.delete(offlineCacheName).catch(() => {});
+      Promise.all(Object.values(offlineCacheNames).map(name => caches.delete(name))).catch(() => {});
       navigator.serviceWorker?.controller?.postMessage({ type: 'clear-offline' });
       renderHistory();
       renderSavedUrls();

@@ -178,7 +178,7 @@ function extractorOptions(sourceUrl) {
   try {
     const hostname = new URL(sourceUrl).hostname.toLowerCase().replace(/^www\./, '');
     return hostname === 'tiktok.com' || hostname.endsWith('.tiktok.com')
-      ? ['--extractor-args', 'tiktok:app_name=musical_ly']
+      ? ['--extractor-args', 'tiktok:app_name=musical_ly', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36', '--referer', 'https://www.tiktok.com/']
       : [];
   } catch {
     return [];
