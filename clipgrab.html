@@ -207,6 +207,9 @@
   .web-tools-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#fff;margin-bottom:4px;}
   .web-tools-dialog-header h2{font-size:20px;}
   .web-tools-subtitle{display:block;color:#AEB2C4;font-size:12px;margin-top:3px;}
+  .web-tools-dialog-actions{display:flex;align-items:center;gap:8px;}
+  .web-tools-session-close{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:8px 10px;font:600 12px Inter,sans-serif;cursor:pointer;}
+  .web-tools-session-close:hover{border-color:var(--accent);color:var(--accent);}
   .web-tools-close{width:34px;height:34px;border:0;border-radius:50%;background:#fff;color:var(--bg);font-size:22px;line-height:1;cursor:pointer;}
   .web-settings-layout{display:grid;grid-template-columns:minmax(128px,28%) minmax(0,1fr);gap:20px;min-height:0;margin-top:24px;}
   .web-settings-nav{display:flex;flex-direction:column;align-items:stretch;gap:4px;border-right:1px solid rgba(255,255,255,.12);padding:0 16px 0 0;}
@@ -384,6 +387,8 @@
   .external-download:hover{border-color:var(--accent-dark);background:#EEF0E8;}
   .external-download.snapvid-link{background:var(--accent);border-color:var(--accent);border-radius:7px;color:var(--bg);font-weight:700;padding:11px 15px;}
   .external-download.snapvid-link:hover{background:var(--accent-dark);border-color:var(--accent-dark);}
+  .close-session{color:#8f3028;border-color:#e0b5ae;background:#fff7f5;}
+  .close-session:hover{border-color:#a33b2f;background:#fff0ed;}
 
   /* ---------- Cross links (Instagram/FB/Twitter cards) ---------- */
   .cross-links{
@@ -670,6 +675,7 @@
   const resultTitle = document.getElementById('result-title');
   const resultSub = document.getElementById('result-sub');
   const resultStatus = document.getElementById('result-status');
+  const closeSessionButton = document.getElementById('close-session-btn');
   const retryButton = document.getElementById('retry-btn');
   const copyResultButton = document.getElementById('copy-result-btn');
   const mediaGrid = document.getElementById('media-grid');
@@ -694,6 +700,7 @@
   const unhideImagesButton = document.getElementById('unhide-images-btn');
   const settingsButton = document.getElementById('settings-btn');
   const webToolsModal = document.getElementById('web-tools-modal');
+  const webToolsSessionClose = document.getElementById('web-tools-session-close');
   const galleryViewer = document.getElementById('gallery-viewer');
   const galleryTrack = document.getElementById('gallery-track');
   const videoViewer = document.getElementById('video-viewer');
@@ -725,6 +732,7 @@
   let batchSources = [];
   let batchSourceIndex = -1;
   let batchRequestToken = 0;
+  let sessionRequestToken = 0;
   let batchMode = false;
   let batchName = '';
   const mediaBatchSize = 10;
@@ -1261,7 +1269,7 @@
       ? `<button class="load-more-media" type="button" data-web-previous-window="true">Show previous ${isWebVideo ? 'video' : 'images'}</button>`
       : '';
     const nextAction = hasMoreItems
-      ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">Load next remaining ${isWebVideo ? 'video' : '10 images'} (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)</button>`
+      ? `<button class="load-more-media" type="button" data-web-next-window="${galleryMode || selectedPlatform === 'Web'}">Load next remaining ${isWebVideo ? 'video' : '10 images'} (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)</button>`
       : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
         ? `<div class="batch-navigation">${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}</div>`
         : '';
@@ -1330,6 +1338,13 @@
     requestAnimationFrame(() => window.scrollTo({ left: 0, top, behavior: 'auto' }));
   }
 
+  function scrollToMediaStart() {
+    requestAnimationFrame(() => {
+      const top = Math.max(0, mediaGrid.getBoundingClientRect().top + window.scrollY - 16);
+      window.scrollTo({ left: 0, top, behavior: 'auto' });
+    });
+  }
+
   function updateGalleryWindow() {
     const first = Math.max(0, galleryIndex - 5);
     const last = Math.min(galleryImages.length - 1, galleryIndex + 5);
@@ -1365,6 +1380,7 @@
     if (!state || !state.items || !state.items.length) return;
     urlInput.value = state.url || '';
     resultCard.classList.add('show');
+    closeSessionButton.hidden = false;
     resultTitle.textContent = state.title || 'Media ready';
     resultSub.textContent = `${state.items.length} item${state.items.length === 1 ? '' : 's'} found. Choose a resolution where available.`;
     addSnapvidNotice(detectPlatform(state.url || urlInput.value));
@@ -1376,12 +1392,14 @@
   }
 
   async function searchMedia(value, force = false) {
+    const requestToken = ++sessionRequestToken;
     new URL(value);
     batchMode = false;
     batchSources = [];
     batchSourceIndex = -1;
     fetchHint.textContent = 'Finding media...';
     resultCard.classList.add('show');
+    closeSessionButton.hidden = false;
     resultTitle.textContent = 'Finding media...';
     resultSub.textContent = 'Checking the source and available formats.';
     setResultStatus('Contacting the source...', 'loading');
@@ -1398,6 +1416,7 @@
       if (!response.ok) throw new Error(data.error || 'The source could not be resolved.');
       if (selectedPlatform === 'Web') cacheWebResult(value, data, selectedWebMediaType);
     }
+    if (requestToken !== sessionRequestToken) return;
     if (!data || !Array.isArray(data.items)) throw new Error(data.error || 'The source returned an invalid response.');
     if (!data.items.length) throw new Error('No downloadable media was found at this URL.');
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
@@ -1417,6 +1436,8 @@
 
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
+      sessionRequestToken++;
+      batchRequestToken++;
       saveSectionState();
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
@@ -1441,6 +1462,7 @@
       const nextState = readSectionState(selectedPlatform);
       urlInput.value = nextState?.url || '';
       resultCard.classList.remove('show');
+      closeSessionButton.hidden = true;
       mediaGrid.innerHTML = '';
       saveState(nextState || { platform: selectedPlatform, url: urlInput.value });
       if (nextState) restoreResults(nextState);
@@ -1488,6 +1510,7 @@
     batchName = batchNameInput.value.trim() || `Batch of ${urls.length} URLs`;
     batchNameInput.value = batchName;
     resultCard.classList.add('show');
+    closeSessionButton.hidden = false;
     resultTitle.textContent = `${batchName}: 1 of ${batchSources.length}`;
     resultSub.textContent = 'Fetching the first URL. The other URLs will load only when selected.';
     status.textContent = `${urls.length} URL${urls.length === 1 ? '' : 's'} queued. Fetching the first one...`;
@@ -1522,11 +1545,11 @@
       }
       const direction = loadMoreButton.dataset.batchDirection;
       if (direction === 'previous' && batchSourceIndex > 0) {
-        fetchBatchSource(batchSourceIndex - 1);
+        fetchBatchSource(batchSourceIndex - 1).then(scrollToMediaStart);
         return;
       }
       if (direction === 'next' && batchSourceIndex < batchSources.length - 1) {
-        fetchBatchSource(batchSourceIndex + 1);
+        fetchBatchSource(batchSourceIndex + 1).then(scrollToMediaStart);
         return;
       }
       if (loadMoreButton.dataset.fetchAgain === 'true') {
@@ -1540,7 +1563,6 @@
         return;
       }
       const visibleItems = visibleMediaItems();
-      const scrollTop = window.scrollY;
       const webWindow = webWindowSize(visibleItems);
       const isWebVideo = selectedPlatform === 'Web' && webWindow === 1;
       if (loadMoreButton.dataset.webPreviousWindow === 'true') {
@@ -1549,18 +1571,19 @@
           ? Math.min(webWindowSize(visibleItems), visibleItems.length)
           : Math.min(webWindowSize(visibleItems), visibleItems.length - renderedMediaStart);
         renderMediaBatch(true);
-        restoreWindowScroll(scrollTop);
+        scrollToMediaStart();
         return;
       }
       if (loadMoreButton.dataset.webNextWindow === 'true') {
-        if (selectedPlatform === 'Web' && !isWebVideo) {
-          renderedMediaCount = Math.min(renderedMediaCount + mediaBatchSize, visibleItems.length);
+        if (!isWebVideo) {
+          renderedMediaStart += renderedMediaCount;
+          renderedMediaCount = Math.min(mediaBatchSize, visibleItems.length - renderedMediaStart);
         } else {
           renderedMediaStart += renderedMediaCount;
           renderedMediaCount = Math.min(webWindowSize(visibleItems), visibleItems.length - renderedMediaStart);
         }
         renderMediaBatch(true);
-        restoreWindowScroll(scrollTop);
+        scrollToMediaStart();
         return;
       }
       if (renderedMediaCount < visibleItems.length) {
@@ -1749,6 +1772,37 @@
       restoreWindowScroll(webToolsScrollY);
     }
   }
+
+  function closeSession() {
+    sessionRequestToken++;
+    batchRequestToken++;
+    batchMode = false;
+    batchSources = [];
+    batchSourceIndex = -1;
+    renderedMediaItems = [];
+    renderedMediaStart = 0;
+    renderedMediaCount = 0;
+    try { localStorage.removeItem(storageKey); } catch {}
+    const states = readSectionStates();
+    delete states[selectedPlatform];
+    try { localStorage.setItem(sectionStatesKey, JSON.stringify(states)); } catch {}
+    urlInput.value = '';
+    resultTitle.textContent = 'Media link received';
+    resultSub.textContent = 'Choose a format to continue';
+    setResultStatus('');
+    retryButton.hidden = true;
+    copyResultButton.hidden = true;
+    closeSessionButton.hidden = true;
+    resultCard.classList.remove('show');
+    mediaGrid.classList.remove('loading', 'gallery-mode');
+    mediaGrid.innerHTML = '';
+    document.getElementById('batch-input').value = '';
+    document.getElementById('batch-status').textContent = '';
+    batchNameInput.value = '';
+    closeGallery();
+    closeVideoViewer();
+    closeWebTools();
+  }
   let privacyPreviousFocus = null;
   function openPrivacySettings() {
     privacyPreviousFocus = document.activeElement;
@@ -1764,6 +1818,8 @@
     document.getElementById('web-tools-close').focus();
   }
   document.getElementById('web-tools-close').addEventListener('click', closeWebTools);
+  closeSessionButton.addEventListener('click', closeSession);
+  webToolsSessionClose.addEventListener('click', closeSession);
   webToolsModal.addEventListener('click', event => {
     if (event.target === webToolsModal) closeWebTools();
   });
