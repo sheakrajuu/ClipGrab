@@ -162,6 +162,13 @@
     font-size:13px;
     margin-top:14px;
   }
+  .web-scan-controls{max-width:640px;margin:12px auto 0;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;color:#C7CAD9;font-size:12px;}
+  .web-scan-mode{display:flex;gap:4px;padding:3px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:rgba(255,255,255,.05);}
+  .web-scan-mode-option{border:0;border-radius:6px;background:transparent;color:#C7CAD9;padding:7px 11px;font:700 11px Inter,sans-serif;cursor:pointer;}
+  .web-scan-mode-option.active{background:var(--accent);color:var(--bg);}
+  .web-page-limit{display:flex;align-items:center;gap:6px;color:#8B8FA3;font-size:11px;}
+  .web-page-limit input{width:64px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.07);color:#fff;padding:6px;font:600 11px Inter,sans-serif;}
+  .web-scan-mode-hint{color:#8B8FA3;font-size:11px;}
   .hero-tools{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:12px;}
   .hero-tool{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:8px 12px;font:600 12px Inter,sans-serif;cursor:pointer;}
   .hero-tool:hover{border-color:var(--accent);color:var(--accent);}
@@ -212,6 +219,17 @@
   .web-tools-dialog-header h2{font-size:20px;}
   .web-tools-close{width:34px;height:34px;border:0;border-radius:50%;background:#fff;color:var(--bg);font-size:22px;line-height:1;cursor:pointer;}
   .web-tools-dialog .batch-section,.web-tools-dialog .saved-url-section{display:block;max-width:none;margin:14px 0 0;}
+  .web-tool-drawers{margin-top:12px;}
+  .web-tool-drawer{border-top:1px solid rgba(255,255,255,.12);padding:10px 0;}
+  .web-tool-drawer summary{color:#C7CAD9;font-size:12px;font-weight:700;cursor:pointer;list-style:none;}
+  .web-tool-drawer summary::-webkit-details-marker{display:none;}
+  .web-tool-drawer summary::after{content:'+';float:right;color:var(--accent);font-size:16px;line-height:12px;}
+  .web-tool-drawer[open] summary::after{content:'−';}
+  .saved-links-section{margin-top:12px;border-top:1px solid rgba(255,255,255,.12);padding-top:12px;}
+  .web-advanced{margin-top:14px;border-top:1px solid rgba(255,255,255,.12);padding-top:10px;}
+  .web-advanced summary{color:#C7CAD9;font-size:12px;font-weight:700;cursor:pointer;list-style:none;}
+  .web-advanced summary::after{content:'+';float:right;color:var(--accent);font-size:16px;line-height:12px;}
+  .web-advanced[open] summary::after{content:'−';}
   .media-type-picker{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:14px;}
   .media-type-option{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:10px 12px;font:700 12px Inter,sans-serif;cursor:pointer;}
   .media-type-option.active{background:var(--accent);border-color:var(--accent);color:var(--bg);}
@@ -666,6 +684,11 @@
   const heroSub = document.getElementById('hero-sub');
   const urlInput = document.getElementById('url-input');
   const pasteButton = document.getElementById('paste-btn');
+  const webScanControls = document.getElementById('web-scan-controls');
+  const webScanModeOptions = document.querySelectorAll('.web-scan-mode-option');
+  const webPageLimitWrap = document.getElementById('web-page-limit-wrap');
+  const webPageLimit = document.getElementById('web-page-limit');
+  const webScanModeHint = document.getElementById('web-scan-mode-hint');
   const fetchHint = document.getElementById('fetch-hint');
   const stepsWrap = document.getElementById('how-to-steps');
   const resultCard = document.getElementById('result-card');
@@ -674,11 +697,15 @@
   const resultStatus = document.getElementById('result-status');
   const retryButton = document.getElementById('retry-btn');
   const copyResultButton = document.getElementById('copy-result-btn');
+  const cancelScanButton = document.getElementById('cancel-scan-btn');
+  const downloadWebsiteAllButton = document.getElementById('download-website-all-btn');
   const mediaGrid = document.getElementById('media-grid');
   const fetchSubmitButton = document.querySelector('#fetch-form button[type="submit"]');
   const savedUrlSection = document.getElementById('saved-url-section');
+  const savedLinksSection = document.getElementById('saved-links-section');
   const savedUrlName = document.getElementById('saved-url-name');
   const savedUrlList = document.getElementById('saved-url-list');
+  const savedLinksClear = document.getElementById('saved-links-clear');
   const batchSection = document.getElementById('batch-section');
   const batchToggle = document.getElementById('batch-toggle');
   const batchNameInput = document.getElementById('batch-name');
@@ -724,11 +751,15 @@
   let viewerScrollY = 0;
   let webToolsScrollY = 0;
   let ageRetryAction = null;
+  let selectedWebScanMode = 'page';
+  let activeRequestController = null;
   let renderedMediaItems = [];
   let renderedMediaStart = 0;
   let renderedMediaCount = 0;
   let websiteBatchMode = false;
   let websiteBatches = [];
+  let websiteScanPages = 0;
+  let websiteScanPageLimit = 0;
   let batchSources = [];
   let batchSourceIndex = -1;
   let batchRequestToken = 0;
@@ -882,7 +913,8 @@
     mediaGrid.innerHTML = websiteBatches.map((batch, index) => {
       const first = batch[0];
       const preview = first?.thumbnail ? `<img src="${escapeHtml(first.thumbnail)}" loading="lazy" alt="">` : '<div class="website-batch-placeholder">Images</div>';
-      return `<button class="website-batch-card" type="button" data-website-batch="${index}" aria-label="Open image batch ${index + 1}, ${batch.length} images">${preview}<span class="website-batch-card-body"><span class="website-batch-card-title">Image batch ${index + 1}</span><span class="website-batch-card-meta">${batch.length} image${batch.length === 1 ? '' : 's'} · Open collection</span></span></button>`;
+      const pageLabel = websiteScanPages ? ` · ${websiteScanPages} page${websiteScanPages === 1 ? '' : 's'} scanned` : '';
+      return `<button class="website-batch-card" type="button" data-website-batch="${index}" aria-label="Open image batch ${index + 1}, ${batch.length} images">${preview}<span class="website-batch-card-body"><span class="website-batch-card-title">Image batch ${index + 1}</span><span class="website-batch-card-meta">${batch.length} image${batch.length === 1 ? '' : 's'}${pageLabel} · Open collection</span></span></button>`;
     }).join('');
   }
 
@@ -900,7 +932,9 @@
   }
 
   function renderSavedUrls() {
-    savedUrlList.innerHTML = readSavedUrls().map((entry, index) => {
+    const entries = readSavedUrls();
+    savedLinksSection.hidden = entries.length === 0 || selectedPlatform !== 'Web';
+    savedUrlList.innerHTML = entries.map((entry, index) => {
       const batch = Array.isArray(entry.urls);
       const value = batch ? entry.urls.join('\n') : entry.url;
       const type = savedMediaType(entry);
@@ -995,12 +1029,17 @@
       body.scanWebsite = true;
       body.pageLimit = Math.min(100, Math.max(1, Number.parseInt(options.pageLimit, 10) || 100));
     }
-    const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-    if (response.status === 429) {
-      const retryAfter = Number(response.headers.get('Retry-After')) || 60;
-      startRequestCooldown(retryAfter);
+    activeRequestController = new AbortController();
+    try {
+      const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body), signal: activeRequestController.signal });
+      if (response.status === 429) {
+        const retryAfter = Number(response.headers.get('Retry-After')) || 60;
+        startRequestCooldown(retryAfter);
+      }
+      return response;
+    } finally {
+      activeRequestController = null;
     }
-    return response;
   }
 
   function snapVidUrl(platform) {
@@ -1322,6 +1361,8 @@
     renderMedia(state.items);
     if (state.scanWebsite && selectedPlatform === 'Web') {
       websiteBatchMode = true;
+      websiteScanPages = Number(state.scanPages) || 0;
+      websiteScanPageLimit = Number(state.pageLimit) || 0;
       renderWebsiteBatchCards();
     }
     Object.entries(state.resolutions || {}).forEach(([index, height]) => {
@@ -1343,9 +1384,13 @@
     retryButton.textContent = 'Retry';
     delete retryButton.dataset.recovery;
     copyResultButton.hidden = true;
+    cancelScanButton.hidden = false;
+    cancelScanButton.disabled = false;
+    downloadWebsiteAllButton.hidden = true;
     fetchSubmitButton.disabled = true;
     mediaGrid.innerHTML = '';
     let data = selectedPlatform === 'Web' && !force ? getCachedWebResult(value, selectedWebMediaType) : null;
+    const loadedFromCache = Boolean(data);
     if (!data) {
       setProgressState('preparing');
       const response = await fetchMediaRequest(value, selectedPlatform === 'Web' ? selectedWebMediaType : null, options);
@@ -1361,16 +1406,22 @@
     const summary = scan ? `Found ${scan.images} image${scan.images === 1 ? '' : 's'}, ${scan.videos} video${scan.videos === 1 ? '' : 's'}, and ${scan.audio} audio source${scan.audio === 1 ? '' : 's'}.${pageSummary}` : `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found.`;
     resultSub.textContent = `${summary} Choose a format where available.`;
     setProgressState('ready');
+    if (loadedFromCache) setResultStatus('Loaded from browser cache.', 'success');
     copyResultButton.hidden = false;
     addSnapvidNotice(detectPlatform(value));
     renderMedia(data.items || []);
     if (options.scanWebsite && selectedPlatform === 'Web') {
       websiteBatchMode = true;
+      websiteScanPages = Number(scan?.pages) || 0;
+      websiteScanPageLimit = Number(scan?.pageLimit) || 0;
       renderWebsiteBatchCards();
     }
-    saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, source: data.source, scanWebsite: Boolean(options.scanWebsite), items: data.items || [] });
+    saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, source: data.source, scanWebsite: Boolean(options.scanWebsite), scanPages: scan?.pages || 0, pageLimit: scan?.pageLimit || 0, items: data.items || [] });
     saveSectionState();
     recordHistory(value, selectedPlatform, resultTitle.textContent);
+    cancelScanButton.hidden = true;
+    cancelScanButton.disabled = false;
+    downloadWebsiteAllButton.hidden = !(options.scanWebsite && data.items?.some(item => item.type === 'image'));
     fetchSubmitButton.disabled = false;
   }
 
@@ -1394,7 +1445,9 @@
       mediaGrid.hidden = isReddit;
       const isWeb = selectedPlatform === 'Web';
       savedUrlSection.hidden = !isWeb;
+      savedLinksSection.hidden = !isWeb || readSavedUrls().length === 0;
       webToolsButton.classList.toggle('visible', isWeb);
+      webScanControls.hidden = !isWeb;
       stepsWrap.innerHTML = data.steps.map((s, i) =>
         `<div class="step"><div class="step-num">${i+1}</div><p>${s}</p></div>`
       ).join('');
@@ -1421,8 +1474,19 @@
       } else if (selectedPlatform !== 'Web' && detectedPlatform !== selectedName) {
         throw new Error(`This box is set to ${selectedPlatform}. Select ${detectedPlatform} or choose Web for another site.`);
       }
-      await searchMedia(value);
+      const scanWebsite = selectedPlatform === 'Web' && selectedWebScanMode === 'website';
+      if (scanWebsite) setWebMediaType('image');
+      await searchMedia(value, false, { scanWebsite, pageLimit: webPageLimit.value });
     } catch (error) {
+      if (error.name === 'AbortError') {
+        resultTitle.textContent = 'Scan cancelled';
+        resultSub.textContent = 'No new pages were fetched. Try another link or start the scan again.';
+        setResultStatus('Scan cancelled.', 'error');
+        cancelScanButton.hidden = true;
+        cancelScanButton.disabled = false;
+        fetchSubmitButton.disabled = false;
+        return;
+      }
       fetchSubmitButton.disabled = false;
       if (isAgeRestrictedError(error.message)) {
         resultCard.classList.add('show');
@@ -1603,6 +1667,7 @@
     document.getElementById('fetch-form').requestSubmit();
   });
   historyClear.addEventListener('click', () => { saveHistory([]); renderHistory(); });
+  savedLinksClear.addEventListener('click', () => { saveSavedUrls([]); renderSavedUrls(); });
   retryButton.addEventListener('click', () => {
     if (retryButton.dataset.recovery === 'another') {
       urlInput.focus();
@@ -1633,6 +1698,23 @@
     try { await navigator.share({ title: 'ClipGrab', text: 'Save public media with ClipGrab.', url: window.location.href }); } catch {}
   });
   mediaTypeOptions.forEach(option => option.addEventListener('click', () => setWebMediaType(option.dataset.mediaType)));
+  webScanModeOptions.forEach(option => option.addEventListener('click', () => {
+    selectedWebScanMode = option.dataset.scanMode === 'website' ? 'website' : 'page';
+    webScanModeOptions.forEach(button => {
+      const active = button === option;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    webPageLimitWrap.hidden = selectedWebScanMode !== 'website';
+    webScanModeHint.textContent = selectedWebScanMode === 'website'
+      ? 'Collect images across same-site pagination and keep the result in this browser.'
+      : 'Scan the pasted page for available media.';
+  }));
+  cancelScanButton.addEventListener('click', () => {
+    activeRequestController?.abort();
+    cancelScanButton.disabled = true;
+    setResultStatus('Cancelling scan...', 'error');
+  });
   websiteScanForm.addEventListener('submit', async event => {
     event.preventDefault();
     const value = websiteScanUrl.value.trim();
@@ -1667,10 +1749,8 @@
   webFilterType.addEventListener('change', () => { mediaFilters.type = webFilterType.value; refreshFilteredResults(); });
   webFilterSort.addEventListener('change', () => { mediaFilters.sort = webFilterSort.value; refreshFilteredResults(); });
   batchToggle.addEventListener('click', () => {
-    batchSection.hidden = !batchSection.hidden;
-    batchToggle.setAttribute('aria-expanded', String(!batchSection.hidden));
-    batchToggle.textContent = batchSection.hidden ? 'Add multiple URLs' : 'Hide multiple URL search';
-    if (!batchSection.hidden) document.getElementById('batch-input').focus();
+    batchSection.hidden = false;
+    setTimeout(() => document.getElementById('batch-input').focus(), 0);
   });
   setWebMediaType('auto');
   document.getElementById('save-url-btn').addEventListener('click', () => {
@@ -1701,6 +1781,18 @@
     state.title = batchName;
     saveState(state);
     saveSectionState();
+  });
+  downloadWebsiteAllButton.addEventListener('click', async () => {
+    const images = renderedMediaItems.filter(item => item.type === 'image' && item.downloads?.image);
+    if (!images.length) return;
+    downloadWebsiteAllButton.disabled = true;
+    for (let index = 0; index < images.length; index += 1) {
+      const item = images[index];
+      setResultStatus(`Downloading image ${index + 1} of ${images.length}...`);
+      await downloadFile(item.downloads.image, downloadWebsiteAllButton, `${safeFileName(item.title, `clipgrab-image-${index + 1}`)}.jpg`);
+    }
+    setResultStatus(`Downloaded ${images.length} image${images.length === 1 ? '' : 's'}.`, 'success');
+    downloadWebsiteAllButton.disabled = false;
   });
   downloadAllButton.addEventListener('click', async () => {
     const status = document.getElementById('batch-status');
