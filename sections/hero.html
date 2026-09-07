@@ -34,6 +34,13 @@
     <div class="result-card gallery" id="result-card">
       <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div><div class="result-status" id="result-status" aria-live="polite"></div><div class="result-actions"><button class="external-download" id="retry-btn" type="button" hidden>Retry</button><button class="external-download" id="copy-result-btn" type="button" hidden>Copy link</button></div></div>
     </div>
+    <div class="age-modal" id="age-modal" role="dialog" aria-modal="true" aria-labelledby="age-title" aria-hidden="true" hidden>
+      <div class="age-dialog">
+        <h2 id="age-title">Age confirmation</h2>
+        <p>This source marked the link as age-restricted. Are you 18 or older? ClipGrab will retry normal public access only; it cannot bypass the source website’s access controls.</p>
+        <div class="age-actions"><button class="external-download" id="age-cancel-btn" type="button">Try another link</button><button class="web-cta" id="age-confirm-btn" type="button">I am 18+</button></div>
+      </div>
+    </div>
     <div class="media-grid" id="media-grid"></div>
     <div class="gallery-viewer" id="gallery-viewer" aria-hidden="true">
       <button class="gallery-close" id="gallery-close" type="button" aria-label="Close gallery">&times;</button>
