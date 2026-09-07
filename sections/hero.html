@@ -26,21 +26,13 @@
         <button type="submit">Find media</button>
       </div>
     </form>
-    <div class="web-scan-controls" id="web-scan-controls" hidden>
-      <div class="web-scan-mode" role="group" aria-label="Web scan mode">
-        <button class="web-scan-mode-option active" type="button" data-scan-mode="page" aria-pressed="true">This page</button>
-        <button class="web-scan-mode-option" type="button" data-scan-mode="website" aria-pressed="false">Website pages</button>
-      </div>
-      <label class="web-page-limit" id="web-page-limit-wrap" hidden>Maximum pages <input id="web-page-limit" type="number" min="1" max="100" value="100"></label>
-      <span class="web-scan-mode-hint" id="web-scan-mode-hint">Scan the pasted page for available media.</span>
-    </div>
     <div class="fetch-hint" id="fetch-hint">Supports TikTok, Instagram, Facebook, X and public websites. Use public links you are allowed to save.</div>
     <div class="hero-tools"><button class="hero-tool" id="share-btn" type="button" hidden>Share ClipGrab</button><button class="hero-tool" id="install-btn" type="button" hidden>Install ClipGrab</button></div>
     <div class="history-panel" id="history-panel" hidden><div class="history-header"><span>Recent links</span><button class="history-clear" id="history-clear" type="button">Clear history</button></div><div class="history-list" id="history-list"></div></div>
     <button class="web-tools-btn" id="web-tools-btn" type="button">Open Web scanner</button>
 
     <div class="result-card gallery" id="result-card">
-      <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div><div class="result-status" id="result-status" aria-live="polite"></div><div class="result-actions"><button class="external-download" id="retry-btn" type="button" hidden>Retry</button><button class="external-download" id="copy-result-btn" type="button" hidden>Copy link</button><button class="external-download" id="cancel-scan-btn" type="button" hidden>Cancel scan</button><button class="external-download" id="download-website-all-btn" type="button" hidden>Download all images</button></div></div>
+      <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div><div class="result-status" id="result-status" aria-live="polite"></div><div class="result-actions"><button class="external-download" id="retry-btn" type="button" hidden>Retry</button><button class="external-download" id="copy-result-btn" type="button" hidden>Copy link</button><button class="external-download" id="cancel-scan-btn" type="button" hidden>Cancel scan</button></div></div>
     </div>
     <div class="age-modal" id="age-modal" role="dialog" aria-modal="true" aria-labelledby="age-title" aria-hidden="true" hidden>
       <div class="age-dialog">
