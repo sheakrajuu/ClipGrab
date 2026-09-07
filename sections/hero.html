@@ -20,7 +20,7 @@
     </div>
 
     <form class="fetch-bar" id="fetch-form">
-      <input type="url" id="url-input" placeholder="Paste a link from TikTok, Instagram, Facebook or more" required>
+      <input type="url" id="url-input" placeholder="Paste a public link from any supported site" aria-label="Public media URL" autocomplete="url" required>
       <div class="input-tools">
         <button class="paste-btn" type="button" id="paste-btn">Paste</button>
         <button type="submit">Find media</button>
@@ -31,8 +31,8 @@
     <div class="history-panel" id="history-panel" hidden><div class="history-header"><span>Recent links</span><button class="history-clear" id="history-clear" type="button">Clear history</button></div><div class="history-list" id="history-list"></div></div>
     <button class="web-tools-btn" id="web-tools-btn" type="button">Open Web scanner</button>
 
-    <div class="result-card gallery" id="result-card">
-      <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div><div class="result-status" id="result-status" aria-live="polite"></div><div class="result-actions"><button class="external-download" id="retry-btn" type="button" hidden>Retry</button><button class="external-download" id="copy-result-btn" type="button" hidden>Copy link</button></div></div>
+    <div class="result-card gallery" id="result-card" aria-live="polite">
+      <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div><div class="result-status" id="result-status"></div><div class="result-actions"><button class="external-download" id="retry-btn" type="button" hidden>Retry</button><button class="external-download" id="copy-result-btn" type="button" hidden>Copy link</button></div></div>
     </div>
     <div class="media-grid" id="media-grid"></div>
     <div class="gallery-viewer" id="gallery-viewer" aria-hidden="true">
