@@ -29,8 +29,6 @@
     <div class="fetch-hint" id="fetch-hint">Supports TikTok, Instagram, Facebook, X and public websites. Use public links you are allowed to save.</div>
     <div class="hero-tools"><button class="hero-tool" id="share-btn" type="button" hidden>Share ClipGrab</button><button class="hero-tool" id="install-btn" type="button" hidden>Install ClipGrab</button></div>
     <div class="history-panel" id="history-panel" hidden><div class="history-header"><span>Recent links</span><button class="history-clear" id="history-clear" type="button">Clear history</button></div><div class="history-list" id="history-list"></div></div>
-    <button class="web-tools-btn" id="web-tools-btn" type="button">Open Web scanner</button>
-
     <div class="result-card gallery" id="result-card" aria-live="polite">
       <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div><div class="result-status" id="result-status"></div><div class="result-actions"><button class="external-download" id="retry-btn" type="button" hidden>Retry</button><button class="external-download" id="copy-result-btn" type="button" hidden>Copy link</button></div></div>
     </div>
@@ -45,17 +43,6 @@
     <div class="video-viewer" id="video-viewer" aria-hidden="true">
       <button class="gallery-close" id="video-close" type="button" aria-label="Close video player">&times;</button>
       <video id="video-player" controls autoplay playsinline></video>
-    </div>
-    <div class="privacy-modal" id="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-title" aria-hidden="true" hidden>
-      <div class="privacy-dialog">
-        <div class="web-tools-dialog-header"><h2 id="privacy-title">Privacy &amp; offline</h2><button class="web-tools-close" id="privacy-close" type="button" aria-label="Close privacy settings">&times;</button></div>
-        <p class="privacy-intro">ClipGrab receives the URL you submit to find media. Results and saved links stay in this browser unless you choose to share them. Downloads are streamed and not kept permanently on the server.</p>
-        <label class="privacy-toggle"><input id="private-mode" type="checkbox"><span><b>Private mode</b><small>Do not save results, links, history, or offline media.</small></span></label>
-        <label class="privacy-toggle"><input id="no-history-mode" type="checkbox"><span><b>No-history mode</b><small>Do not save recent links or saved URL lists.</small></span></label>
-        <label class="privacy-toggle"><input id="offline-mode" type="checkbox"><span><b>Allow offline media</b><small>Keep media you explicitly choose with “Keep offline” for later viewing.</small></span></label>
-        <button class="danger-btn" id="delete-local-data" type="button">Delete all local data</button>
-        <p class="privacy-note" id="privacy-status" aria-live="polite"></p>
-      </div>
     </div>
   </div>
 </section>
