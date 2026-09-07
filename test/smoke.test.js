@@ -62,6 +62,14 @@ test('homepage and PWA assets are available', async () => {
   assert.match(maskableIcon.headers.get('content-type'), /image\/png/);
 });
 
+test('extractor arguments keep the original URL separate from cache mode', () => {
+  assert.deepEqual(app.extractorArgs('https://example.com/video'), [
+    '--dump-single-json', '--yes-playlist', '--no-warnings', '--socket-timeout', '20',
+    '--retries', '2', '--fragment-retries', '2', '--concurrent-fragments', '4',
+    'https://example.com/video'
+  ]);
+});
+
 test('video extraction finds lazy-loaded video sources', async () => {
   const videos = await app.extractPageVideos(new URL(fixtureUrl));
   assert.deepEqual(videos, [`${new URL(fixtureUrl).origin}/media/launch.mp4`]);
