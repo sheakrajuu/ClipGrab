@@ -55,6 +55,10 @@ test('homepage and PWA assets are available', async () => {
   assert.match(pageText, /data-settings-section="history"/);
   assert.match(pageText, /id="saved-batch-list"/);
   assert.match(pageText, /id="private-mode"/);
+  assert.match(pageText, /id="clear-image-cache-btn"/);
+  assert.match(pageText, /id="clear-video-cache-btn"/);
+  assert.match(pageText, /id="clear-audio-cache-btn"/);
+  assert.match(pageText, /id="jump-overlay"/);
   imageFixtureUrl = `http://127.0.0.1:${fixtureServer.address().port}/image-page`;
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
