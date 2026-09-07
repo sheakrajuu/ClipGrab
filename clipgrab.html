@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ClipGrab — Save social media videos and images</title>
-<link rel="icon" href="/icons/favicon.ico" type="image/x-icon">
+<link rel="icon" href="/icons/icon-app-512.png?v=1" type="image/png">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/icons/icon-180x180.png">
+<link rel="apple-touch-icon" href="/icons/icon-app-180.png?v=1">
 <meta name="theme-color" content="#101316">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -155,7 +155,7 @@
   }
   .fetch-bar button:hover{background:var(--accent-dark);}
   .input-tools{display:flex;align-items:center;gap:8px;padding-right:6px;}
-  .paste-btn{border:0;background:#EEF0E8;color:var(--text);border-radius:7px;padding:9px 11px;font:600 12px Inter,sans-serif;cursor:pointer;}
+  .paste-btn{border:0;background:#EEF0E8;color:var(--text);border-radius:7px;padding:9px 12px;font:700 12px Inter,sans-serif;cursor:pointer;}
   .paste-btn:hover{background:#E2E5D9;}
   .fetch-hint{
     color:#8B8FA3;
@@ -219,6 +219,11 @@
   .web-filter-panel{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
   .web-filter-panel label{display:flex;align-items:center;gap:6px;color:#8B8FA3;font-size:11px;}
   .web-filter-panel select{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:#202723;color:#fff;padding:7px 8px;font:600 11px Inter,sans-serif;}
+  .website-scan-section{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12);}
+  .website-scan-form{display:grid;grid-template-columns:minmax(0,1fr) 92px auto;gap:8px;align-items:end;margin-top:8px;}
+  .website-scan-form input{width:100%;min-width:0;border:1px solid rgba(255,255,255,.14);border-radius:7px;background:rgba(255,255,255,.07);color:#fff;padding:9px 10px;font:12px Inter,sans-serif;outline:none;}
+  .website-scan-form input:focus{border-color:var(--accent);}
+  .website-scan-form label{color:#8B8FA3;font-size:11px;}
 
   /* result card (hidden by default, shown after "download") */
   .result-card{
@@ -246,6 +251,15 @@
   .result-body{flex:1;min-width:0;}
   .media-grid{display:grid;grid-template-columns:1fr;gap:16px;max-width:760px;margin:20px auto 0;}
   .media-grid.gallery-mode{display:block;columns:4 220px;column-gap:14px;max-width:1120px;}
+  .website-batch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;max-width:1080px;margin:20px auto 0;}
+  .website-batch-card{display:block;width:100%;padding:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;color:var(--text);text-align:left;cursor:pointer;box-shadow:0 8px 22px rgba(16,19,22,.1);transition:transform .15s ease,box-shadow .15s ease;}
+  .website-batch-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(16,19,22,.16);}
+  .website-batch-card:focus-visible{outline:3px solid var(--accent-dark);outline-offset:2px;}
+  .website-batch-card img,.website-batch-placeholder{display:block;width:100%;height:190px;object-fit:cover;background:#202824;}
+  .website-batch-placeholder{display:grid;place-items:center;color:#AEB2C4;font-size:13px;}
+  .website-batch-card-body{padding:13px 14px;}
+  .website-batch-card-title{font-weight:700;font-size:14px;margin-bottom:4px;}
+  .website-batch-card-meta{color:var(--muted);font-size:12px;}
   .media-item{background:#fff;color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:12px;}
   .gallery-mode .gallery-tile{display:inline-block;width:100%;padding:0;border:1px solid rgba(255,255,255,.1);border-radius:10px;overflow:hidden;cursor:pointer;break-inside:avoid;margin:0 0 14px;background:#202824;position:relative;box-shadow:0 8px 22px rgba(16,19,22,.12);}
   .media-item img{background:#fff;}
@@ -286,6 +300,13 @@
   .privacy-modal.open{display:flex;}
   .privacy-dialog{width:min(640px,100%);max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:none;background:var(--bg);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:20px;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.4);}
   .privacy-dialog::-webkit-scrollbar{width:0;height:0;display:none;background:transparent;}
+  .age-modal{position:fixed;inset:0;z-index:45;background:rgba(10,12,14,.82);display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);}
+  .age-modal[hidden]{display:none !important;}
+  .age-modal.open{display:flex;}
+  .age-dialog{width:min(500px,100%);background:var(--bg);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:22px;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+  .age-dialog h2{font-size:20px;margin-bottom:10px;}
+  .age-dialog p{color:#AEB2C4;font-size:13px;line-height:1.6;margin:0;}
+  .age-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:18px;}
   .privacy-intro{color:#AEB2C4;font-size:13px;line-height:1.6;margin:10px 0 16px;max-width:58ch;text-align:left;}
   .privacy-toggle{display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px;align-items:center;max-width:400px;margin:0 auto;border-top:1px solid rgba(255,255,255,.12);padding:12px 0;cursor:pointer;}
   .privacy-toggle input{width:20px;height:20px;margin:0;accent-color:var(--accent);}
@@ -308,12 +329,18 @@
   .format-option.active{background:var(--bg);color:var(--accent);box-shadow:0 2px 5px rgba(16,19,22,.16);}
   .format-option:focus-visible{outline:2px solid var(--accent-dark);outline-offset:1px;}
   @media (max-width:600px){
+    .fetch-bar{border-radius:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;padding:6px;}
+    .fetch-bar input{grid-column:1 / -1;padding:12px 10px;}
+    .fetch-bar .input-tools{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;padding:0;}
+    .fetch-bar .input-tools button{width:100%;}
     .web-tools-modal{padding:12px;}
     .web-tools-dialog{padding:14px;max-height:calc(100vh - 24px);}
     .web-tools-dialog-header{align-items:flex-start;}
     .web-tools-dialog-header h2{font-size:18px;}
     .batch-form{grid-template-columns:1fr;}
     .batch-form .batch-btn,.batch-form .save-url-btn{width:100%;}
+    .website-scan-form{grid-template-columns:1fr;}
+    .website-scan-form button{width:100%;}
     .batch-header{align-items:flex-start;flex-direction:column;gap:3px;}
     .batch-header span{line-height:1.35;}
     .batch-name-tools{align-items:stretch;flex-direction:column;}
@@ -543,6 +570,8 @@
     .fetch-bar button{margin-top:6px;}
     .media-grid{grid-template-columns:1fr;}
     .media-grid.gallery-mode{columns:2 150px;column-gap:8px;}
+    .website-batch-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .website-batch-card img,.website-batch-placeholder{height:140px;}
     .media-item img,.media-item video{max-height:420px;}
     .media-item-body{width:100%;}
     .media-download{width:100%;}
@@ -636,6 +665,7 @@
   const heroTitle = document.getElementById('hero-title');
   const heroSub = document.getElementById('hero-sub');
   const urlInput = document.getElementById('url-input');
+  const pasteButton = document.getElementById('paste-btn');
   const fetchHint = document.getElementById('fetch-hint');
   const stepsWrap = document.getElementById('how-to-steps');
   const resultCard = document.getElementById('result-card');
@@ -657,6 +687,10 @@
   const mediaTypeHint = document.getElementById('media-type-hint');
   const webFilterType = document.getElementById('web-filter-type');
   const webFilterSort = document.getElementById('web-filter-sort');
+  const websiteScanForm = document.getElementById('website-scan-form');
+  const websiteScanUrl = document.getElementById('website-scan-url');
+  const websiteScanLimit = document.getElementById('website-scan-limit');
+  const websiteScanStatus = document.getElementById('website-scan-status');
   const unhideImagesButton = document.getElementById('unhide-images-btn');
   const webToolsButton = document.getElementById('web-tools-btn');
   const webToolsModal = document.getElementById('web-tools-modal');
@@ -675,6 +709,9 @@
   const installButton = document.getElementById('install-btn');
   const settingsButton = document.getElementById('settings-btn');
   const privacyModal = document.getElementById('privacy-modal');
+  const ageModal = document.getElementById('age-modal');
+  const ageConfirmButton = document.getElementById('age-confirm-btn');
+  const ageCancelButton = document.getElementById('age-cancel-btn');
   const privacyClose = document.getElementById('privacy-close');
   const privateMode = document.getElementById('private-mode');
   const noHistoryMode = document.getElementById('no-history-mode');
@@ -686,16 +723,21 @@
   let galleryImages = [];
   let viewerScrollY = 0;
   let webToolsScrollY = 0;
+  let ageRetryAction = null;
   let renderedMediaItems = [];
   let renderedMediaStart = 0;
   let renderedMediaCount = 0;
+  let websiteBatchMode = false;
+  let websiteBatches = [];
   let batchSources = [];
   let batchSourceIndex = -1;
   let batchRequestToken = 0;
   let batchMode = false;
   let batchName = '';
   const mediaBatchSize = 10;
+  const webVideoWindowSize = 5;
   const webImageWindowSize = 20;
+  const websiteBatchSize = 100;
   let selectedPlatform = 'TikTok';
   let selectedWebMediaType = 'auto';
   const mediaFilters = { type: 'all', sort: 'page' };
@@ -788,6 +830,33 @@
     resultStatus.className = `result-status${kind ? ` ${kind}` : ''}`;
   }
 
+  function setProgressState(state) {
+    const labels = { checking: 'Checking link...', preparing: 'Preparing download...', ready: 'Download ready.' };
+    const kind = state === 'ready' ? 'success' : '';
+    fetchHint.textContent = labels[state] || '';
+    setResultStatus(labels[state] || '', kind);
+  }
+
+  function isAgeRestrictedError(message) {
+    return /age[- ]restricted|age gate|confirm your age|confirm you(?:'|’)re 18|sign in to confirm your age/i.test(String(message || ''));
+  }
+
+  function openAgeConfirmation(retryAction) {
+    ageRetryAction = retryAction;
+    ageModal.hidden = false;
+    ageModal.classList.add('open');
+    ageModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('viewer-open');
+    ageConfirmButton.focus();
+  }
+
+  function closeAgeConfirmation() {
+    ageModal.classList.remove('open');
+    ageModal.setAttribute('aria-hidden', 'true');
+    ageModal.hidden = true;
+    if (!privacyModal.classList.contains('open') && !webToolsModal.classList.contains('open') && !galleryViewer.classList.contains('open') && !videoViewer.classList.contains('open')) document.body.classList.remove('viewer-open');
+  }
+
   function readHiddenImages() {
     try { return new Set(JSON.parse(localStorage.getItem(hiddenImagesKey) || '[]')); } catch { return new Set(); }
   }
@@ -802,6 +871,19 @@
     if (mediaFilters.sort === 'title') return [...filtered].sort((first, second) => first.title.localeCompare(second.title));
     if (mediaFilters.sort === 'type') return [...filtered].sort((first, second) => first.type.localeCompare(second.type));
     return filtered;
+  }
+
+  function renderWebsiteBatchCards() {
+    websiteBatches = [];
+    const items = visibleMediaItems();
+    for (let start = 0; start < items.length; start += websiteBatchSize) websiteBatches.push(items.slice(start, start + websiteBatchSize));
+    mediaGrid.classList.remove('gallery-mode');
+    mediaGrid.classList.add('website-batch-grid');
+    mediaGrid.innerHTML = websiteBatches.map((batch, index) => {
+      const first = batch[0];
+      const preview = first?.thumbnail ? `<img src="${escapeHtml(first.thumbnail)}" loading="lazy" alt="">` : '<div class="website-batch-placeholder">Images</div>';
+      return `<button class="website-batch-card" type="button" data-website-batch="${index}" aria-label="Open image batch ${index + 1}, ${batch.length} images">${preview}<span class="website-batch-card-body"><span class="website-batch-card-title">Image batch ${index + 1}</span><span class="website-batch-card-meta">${batch.length} image${batch.length === 1 ? '' : 's'} · Open collection</span></span></button>`;
+    }).join('');
   }
 
   function updateUnhideButton() {
@@ -905,10 +987,14 @@
     if (remaining) throw new Error(`Please wait ${remaining} seconds before fetching again.`);
   }
 
-  async function fetchMediaRequest(url, mediaType = null) {
+  async function fetchMediaRequest(url, mediaType = null, options = {}) {
     assertRequestAllowed();
     const body = { url };
     if (selectedPlatform === 'Web' && mediaType) body.mediaType = mediaType;
+    if (options.scanWebsite) {
+      body.scanWebsite = true;
+      body.pageLimit = Math.min(100, Math.max(1, Number.parseInt(options.pageLimit, 10) || 100));
+    }
     const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
     if (response.status === 429) {
       const retryAfter = Number(response.headers.get('Retry-After')) || 60;
@@ -928,9 +1014,23 @@
 
   function showErrorWithFallback(message, platform = selectedPlatform) {
     const isTikTok = platform === 'TikTok';
-    resultSub.textContent = message || 'The media could not be downloaded.';
-    setResultStatus('Check the link or try again.', 'error');
+    const rawMessage = message || '';
+    const normalizedMessage = /private|login required|sign in required|authentication/i.test(rawMessage)
+      ? 'This link is private or requires access on the source website.'
+      : /age[- ]restricted|age gate|confirm your age/i.test(rawMessage)
+        ? 'This video has an age gate. ClipGrab cannot bypass sign-in or age restrictions.'
+        : /blocked|cloudflare|captcha|forbidden|403/i.test(rawMessage)
+          ? 'The source website blocked this request.'
+          : /no downloadable media|no video formats|unsupported url/i.test(rawMessage)
+            ? 'No downloadable video was found at this link.'
+            : rawMessage || 'The link could not be resolved.';
+    resultSub.textContent = normalizedMessage;
+    setProgressState('error');
+    setResultStatus('Try another public link.', 'error');
+    fetchHint.textContent = 'Try another public link.';
     retryButton.hidden = false;
+    retryButton.textContent = 'Try another link';
+    retryButton.dataset.recovery = 'another';
     copyResultButton.hidden = false;
     const link = document.createElement('a');
     link.className = 'external-download';
@@ -938,7 +1038,7 @@
     link.dataset.sourceUrl = urlInput.value.trim();
     link.target = '_blank';
     link.rel = 'noopener';
-    link.textContent = isTikTok ? 'Try SnapVid for now' : 'If this does not work, try SnapVid';
+    link.textContent = isTikTok ? 'Try SnapVid for now' : 'Try SnapVid instead';
     resultSub.append(' ', link);
   }
 
@@ -955,7 +1055,7 @@
     try {
       const url = new URL(target, window.location.origin);
       url.searchParams.set('name', safeFileName(fileName));
-      setResultStatus('Preparing your download...');
+      setProgressState('preparing');
       const response = await fetch(url);
       if (!response.ok) throw new Error((await response.text()) || 'The download failed.');
       const total = Number(response.headers.get('content-length'));
@@ -977,7 +1077,7 @@
       link.download = safeFileName(fileName);
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      setResultStatus('Download ready.', 'success');
+      setProgressState('ready');
       button.textContent = 'Downloaded';
     } catch (error) {
       setResultStatus(error.message || 'The download failed. Try again.', 'error');
@@ -1008,10 +1108,12 @@
   }
 
   function webWindowSize(items) {
-    return items.some(item => item.type === 'video' || item.type === 'audio') ? 1 : webImageWindowSize;
+    return items.some(item => item.type === 'video' || item.type === 'audio') ? webVideoWindowSize : webImageWindowSize;
   }
 
   function renderMedia(items, galleryMode = items.length > 0 && items.every(item => item.type === 'image')) {
+    websiteBatchMode = false;
+    mediaGrid.classList.remove('website-batch-grid');
     renderedMediaItems = items.map((item, index) => ({ ...item, id: item.id || `${item.downloads?.image || item.thumbnail || item.title}-${index}` }));
     renderedMediaStart = 0;
     renderedMediaCount = selectedPlatform === 'Web'
@@ -1089,21 +1191,22 @@
   }
 
   function renderMediaBatch(galleryMode) {
+    mediaGrid.classList.remove('website-batch-grid');
     mediaGrid.classList.toggle('gallery-mode', galleryMode);
     const visibleItems = visibleMediaItems();
     const items = visibleItems.slice(renderedMediaStart, renderedMediaStart + renderedMediaCount);
     const hasMoreItems = renderedMediaStart + renderedMediaCount < visibleItems.length;
     const hasPreviousItems = selectedPlatform === 'Web' && renderedMediaStart > 0;
     const webWindow = webWindowSize(visibleItems);
-    const isWebVideo = selectedPlatform === 'Web' && webWindow === 1;
+    const isWebVideo = selectedPlatform === 'Web' && visibleItems.some(item => item.type === 'video');
     const fetchAgain = selectedPlatform === 'Web' && (!batchMode || batchSourceIndex >= 0)
       ? '<button class="load-more-media fetch-again" type="button" data-fetch-again="true">Fetch again</button>'
       : '';
     const previousWindow = hasPreviousItems
-      ? `<button class="load-more-media" type="button" data-web-previous-window="true">Show previous ${isWebVideo ? 'video' : 'images'}</button>`
+      ? `<button class="load-more-media" type="button" data-web-previous-window="true">Show previous ${isWebVideo ? '5 videos' : 'images'}</button>`
       : '';
     const nextAction = hasMoreItems
-      ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">${selectedPlatform === 'Web' ? `Load next ${isWebVideo ? 'video' : '10 images'} (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)` : `Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)`}</button>`
+      ? `<button class="load-more-media" type="button" data-web-next-window="${selectedPlatform === 'Web'}">${selectedPlatform === 'Web' ? `Load next ${isWebVideo ? '5 videos' : '20 images'} (${visibleItems.length - renderedMediaStart - renderedMediaCount} remaining)` : `Load 10 more images (${visibleItems.length - renderedMediaCount} remaining)`}</button>`
       : batchMode && (batchSourceIndex > 0 || batchSourceIndex < batchSources.length - 1)
         ? `<div class="batch-navigation">${batchSourceIndex > 0 ? '<button class="load-more-media" type="button" data-batch-direction="previous">Jump to previous</button>' : ''}${batchSourceIndex < batchSources.length - 1 ? '<button class="load-more-media" type="button" data-batch-direction="next">Jump to next</button>' : ''}</div>`
         : '';
@@ -1132,6 +1235,19 @@
       const hideButton = galleryTile ? `<button class="hide-image" type="button" data-hide-id="${escapeHtml(item.id)}" aria-label="Hide this image">Hide</button>` : '';
       return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div><div class="media-meta">${escapeHtml(mediaMeta)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : `<input class="file-name" type="text" placeholder="Optional file name" aria-label="Optional file name">${formats}${resolutions}<div class="progress-track" aria-hidden="true"><div class="progress-bar"></div></div>`}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${offlineButton}${snapVidFallback}</div></div></article>`;
     }).join('') + galleryActions;
+  }
+
+  function openGalleryItems(items, selectedId = '') {
+    galleryImages = items;
+    galleryIndex = Math.max(0, items.findIndex(item => item.id === selectedId));
+    galleryTrack.innerHTML = galleryImages.map((item, index) => `<div class="gallery-slide"><img data-gallery-index="${index}" data-gallery-src="${escapeHtml(item.thumbnail || '')}" alt=""></div>`).join('');
+    updateGalleryWindow();
+    galleryViewer.classList.add('open');
+    galleryViewer.setAttribute('aria-hidden', 'false');
+    viewerScrollY = window.scrollY;
+    document.body.classList.add('viewer-open');
+    galleryTrack.scrollTo({ left: galleryTrack.clientWidth * galleryIndex, behavior: 'auto' });
+    updateGalleryWindow();
   }
 
   function closeGallery() {
@@ -1204,29 +1320,35 @@
     resultSub.textContent = `${state.items.length} item${state.items.length === 1 ? '' : 's'} found. Choose a resolution where available.`;
     addSnapvidNotice(detectPlatform(state.url || urlInput.value));
     renderMedia(state.items);
+    if (state.scanWebsite && selectedPlatform === 'Web') {
+      websiteBatchMode = true;
+      renderWebsiteBatchCards();
+    }
     Object.entries(state.resolutions || {}).forEach(([index, height]) => {
       const selector = mediaGrid.querySelector(`.resolution[data-item="${index}"]`);
       if (selector) selector.value = height;
     });
   }
 
-  async function searchMedia(value, force = false) {
+  async function searchMedia(value, force = false, options = {}) {
     new URL(value);
     batchMode = false;
     batchSources = [];
     batchSourceIndex = -1;
-    fetchHint.textContent = 'Finding media...';
+    setProgressState('checking');
     resultCard.classList.add('show');
     resultTitle.textContent = 'Finding media...';
     resultSub.textContent = 'Checking the source and available formats.';
-    setResultStatus('Contacting the source...');
     retryButton.hidden = true;
+    retryButton.textContent = 'Retry';
+    delete retryButton.dataset.recovery;
     copyResultButton.hidden = true;
     fetchSubmitButton.disabled = true;
     mediaGrid.innerHTML = '';
     let data = selectedPlatform === 'Web' && !force ? getCachedWebResult(value, selectedWebMediaType) : null;
     if (!data) {
-      const response = await fetchMediaRequest(value, selectedPlatform === 'Web' ? selectedWebMediaType : null);
+      setProgressState('preparing');
+      const response = await fetchMediaRequest(value, selectedPlatform === 'Web' ? selectedWebMediaType : null, options);
       const responseText = await response.text();
       try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
       if (!response.ok) throw new Error(data.error || 'The source could not be resolved.');
@@ -1235,14 +1357,18 @@
     if (!data || !Array.isArray(data.items)) throw new Error(data.error || 'The source returned an invalid response.');
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
     const scan = data.scan;
-    const summary = scan ? `Found ${scan.images} image${scan.images === 1 ? '' : 's'}, ${scan.videos} video${scan.videos === 1 ? '' : 's'}, and ${scan.audio} audio source${scan.audio === 1 ? '' : 's'}.` : `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found.`;
+    const pageSummary = scan?.pages ? ` Scanned ${scan.pages} of ${scan.pageLimit} pages.` : '';
+    const summary = scan ? `Found ${scan.images} image${scan.images === 1 ? '' : 's'}, ${scan.videos} video${scan.videos === 1 ? '' : 's'}, and ${scan.audio} audio source${scan.audio === 1 ? '' : 's'}.${pageSummary}` : `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found.`;
     resultSub.textContent = `${summary} Choose a format where available.`;
-    setResultStatus('Media ready.', 'success');
+    setProgressState('ready');
     copyResultButton.hidden = false;
     addSnapvidNotice(detectPlatform(value));
     renderMedia(data.items || []);
-    fetchHint.textContent = 'Enjoy your media.';
-    saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, source: data.source, items: data.items || [] });
+    if (options.scanWebsite && selectedPlatform === 'Web') {
+      websiteBatchMode = true;
+      renderWebsiteBatchCards();
+    }
+    saveState({ platform: selectedPlatform, url: value, title: resultTitle.textContent, source: data.source, scanWebsite: Boolean(options.scanWebsite), items: data.items || [] });
     saveSectionState();
     recordHistory(value, selectedPlatform, resultTitle.textContent);
     fetchSubmitButton.disabled = false;
@@ -1290,12 +1416,24 @@
       const selectedName = selectedPlatform === 'Twitter' ? 'X' : selectedPlatform;
       if (selectedPlatform === 'Reddit') throw new Error('Select the Web scanner to try the Reddit link.');
       if (selectedPlatform === 'Pinterest') throw new Error('Select the Web scanner to download Pinterest media.');
-      if (selectedPlatform !== 'Web' && detectedPlatform !== selectedName) {
+      if (selectedPlatform !== 'Web' && detectedPlatform === 'Social media') {
+        document.querySelector('.tab[data-platform="Web"]')?.click();
+      } else if (selectedPlatform !== 'Web' && detectedPlatform !== selectedName) {
         throw new Error(`This box is set to ${selectedPlatform}. Select ${detectedPlatform} or choose Web for another site.`);
       }
       await searchMedia(value);
     } catch (error) {
       fetchSubmitButton.disabled = false;
+      if (isAgeRestrictedError(error.message)) {
+        resultCard.classList.add('show');
+        resultTitle.textContent = 'Age confirmation needed';
+        resultSub.textContent = 'The source marked this link as age-restricted.';
+        setResultStatus('Confirm your age to retry public access.', 'error');
+        retryButton.hidden = true;
+        copyResultButton.hidden = true;
+        openAgeConfirmation(() => searchMedia(value, true));
+        return;
+      }
       resultCard.classList.add('show');
       resultTitle.textContent = 'Could not find that media';
       showErrorWithFallback(error.message || 'Check the URL and try again.', failedUrlPlatform());
@@ -1337,6 +1475,12 @@
     saveSectionState();
   });
   mediaGrid.addEventListener('click', e => {
+    const websiteBatchButton = e.target.closest('.website-batch-card');
+    if (websiteBatchButton) {
+      const batch = websiteBatches[Number(websiteBatchButton.dataset.websiteBatch)];
+      if (batch?.length) openGalleryItems(batch);
+      return;
+    }
     const hideButton = e.target.closest('.hide-image');
     if (hideButton) {
       const item = renderedMediaItems.find(entry => entry.id === hideButton.dataset.hideId);
@@ -1370,13 +1514,13 @@
         renderedMediaCount = renderedMediaStart === 0
           ? Math.min(webWindowSize(visibleItems), visibleItems.length)
           : Math.min(webWindowSize(visibleItems), visibleItems.length - renderedMediaStart);
-        renderMediaBatch(true);
+        renderMediaBatch(visibleItems.length > 0 && visibleItems.every(item => item.type === 'image'));
         return;
       }
       if (loadMoreButton.dataset.webNextWindow === 'true') {
         renderedMediaStart += renderedMediaCount;
         renderedMediaCount = Math.min(webWindowSize(visibleItems), visibleItems.length - renderedMediaStart);
-        renderMediaBatch(true);
+        renderMediaBatch(visibleItems.length > 0 && visibleItems.every(item => item.type === 'image'));
         return;
       }
       if (renderedMediaCount < visibleItems.length) {
@@ -1438,8 +1582,15 @@
     if (downloadButton) downloadButton.textContent = `Download ${option.dataset.format === 'audio' ? 'audio' : 'video'}`;
   });
 
-  document.getElementById('paste-btn').addEventListener('click', async () => {
-    try { urlInput.value = await navigator.clipboard.readText(); urlInput.focus(); } catch { urlInput.focus(); }
+  pasteButton.addEventListener('click', async () => {
+    try {
+      urlInput.value = await navigator.clipboard.readText();
+      urlInput.focus();
+      fetchHint.textContent = urlInput.value ? 'Link pasted. Select Find media to continue.' : 'Clipboard is empty. Copy a link first.';
+    } catch {
+      urlInput.focus();
+      setResultStatus('Clipboard access is unavailable. Long-press the field and choose Paste.', 'error');
+    }
   });
   historyList.addEventListener('click', event => {
     const button = event.target.closest('.history-item');
@@ -1452,7 +1603,29 @@
     document.getElementById('fetch-form').requestSubmit();
   });
   historyClear.addEventListener('click', () => { saveHistory([]); renderHistory(); });
-  retryButton.addEventListener('click', () => { if (urlInput.value.trim()) searchMedia(urlInput.value.trim(), true).catch(error => showErrorWithFallback(error.message)); });
+  retryButton.addEventListener('click', () => {
+    if (retryButton.dataset.recovery === 'another') {
+      urlInput.focus();
+      urlInput.select();
+      return;
+    }
+    if (urlInput.value.trim()) searchMedia(urlInput.value.trim(), true).catch(error => showErrorWithFallback(error.message));
+  });
+  ageConfirmButton.addEventListener('click', async () => {
+    const retryAction = ageRetryAction;
+    ageRetryAction = null;
+    closeAgeConfirmation();
+    if (retryAction) {
+      try { await retryAction(); } catch (error) { showErrorWithFallback(error.message); }
+    }
+  });
+  ageCancelButton.addEventListener('click', () => {
+    ageRetryAction = null;
+    closeAgeConfirmation();
+    fetchSubmitButton.disabled = false;
+    urlInput.focus();
+    setResultStatus('Try another public link.', 'error');
+  });
   copyResultButton.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(urlInput.value.trim()); setResultStatus('Link copied.', 'success'); } catch { setResultStatus('Copy failed. Select the link manually.', 'error'); }
   });
@@ -1460,8 +1633,31 @@
     try { await navigator.share({ title: 'ClipGrab', text: 'Save public media with ClipGrab.', url: window.location.href }); } catch {}
   });
   mediaTypeOptions.forEach(option => option.addEventListener('click', () => setWebMediaType(option.dataset.mediaType)));
+  websiteScanForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const value = websiteScanUrl.value.trim();
+    const pageLimit = Math.min(100, Math.max(1, Number.parseInt(websiteScanLimit.value, 10) || 100));
+    websiteScanLimit.value = pageLimit;
+    try {
+      new URL(value);
+      if (selectedPlatform !== 'Web') document.querySelector('.tab[data-platform="Web"]')?.click();
+      setWebMediaType('image');
+      urlInput.value = value;
+      websiteScanStatus.textContent = `Scanning up to ${pageLimit} same-site pages...`;
+      closeWebTools();
+      await searchMedia(value, true, { scanWebsite: true, pageLimit });
+      websiteScanStatus.textContent = `Website scan complete. Results are cached in this browser.`;
+    } catch (error) {
+      websiteScanStatus.textContent = error.message || 'Website scan failed. Try another public link.';
+      showErrorWithFallback(error.message || 'Website scan failed.', 'Web');
+    }
+  });
   function refreshFilteredResults() {
     if (!renderedMediaItems.length) return;
+    if (websiteBatchMode) {
+      renderWebsiteBatchCards();
+      return;
+    }
     const visibleItems = visibleMediaItems();
     const galleryMode = visibleItems.length > 0 && visibleItems.every(item => item.type === 'image');
     renderedMediaStart = 0;

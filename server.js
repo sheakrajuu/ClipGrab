@@ -29,6 +29,8 @@ const webVideoLimitSeconds = 15 * 60;
 const upstreamTimeoutMs = 120000;
 const metadataTimeoutMs = 30000;
 const directTypeTimeoutMs = 8000;
+const pageScanMaxPages = 100;
+const pageScanTimeoutMs = 8000;
 
 const pageSections = ['header', 'hero', 'web-tools', 'cross-links', 'content', 'footer'];
 
@@ -88,7 +90,7 @@ app.use((req, res, next) => {
 });
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/icons/favicon.ico', (req, res) => res.type('image/x-icon').sendFile(path.join(__dirname, 'icons', 'favicon.ico')));
-app.get(/^\/icons\/icon-(?:\d+x\d+|maskable(?:-192)?)\.png$/, (req, res) => res.type('image/png').sendFile(path.join(__dirname, req.path)));
+app.get(/^\/icons\/icon-(?:\d+x\d+|maskable(?:-192)?|app-\d+(?:x\d+)?)\.png$/, (req, res) => res.type('image/png').sendFile(path.join(__dirname, req.path)));
 app.get(['/tiktok-downloader', '/instagram-downloader', '/web-image-downloader', '/video-url-downloader', '/public-media-downloader'], (req, res) => res.sendFile(path.join(__dirname, 'seo.html')));
 
 function parseUrl(value) {
@@ -203,7 +205,7 @@ function previewUrl(sourceUrl, refererUrl) {
   return '/api/preview?' + params.toString();
 }
 
-function webMediaData(parsed, requestedMediaType, imageUrls = [], videoUrls = [], audioUrls = []) {
+function webMediaData(parsed, requestedMediaType, imageUrls = [], videoUrls = [], audioUrls = [], pageScan = null) {
   const fileType = url => { try { return path.extname(new URL(url).pathname).replace('.', '').toUpperCase() || 'MEDIA'; } catch { return 'MEDIA'; } };
   const sourceDomain = url => { try { return new URL(url).hostname; } catch { return parsed.hostname; } };
   const includeImages = requestedMediaType === 'auto' || requestedMediaType === 'all' || requestedMediaType === 'image';
@@ -214,7 +216,7 @@ function webMediaData(parsed, requestedMediaType, imageUrls = [], videoUrls = []
     ...(includeAudio ? audioUrls.map((url, position) => ({ index: position + 1, title: `Audio ${position + 1}`, fileType: fileType(url), sourceDomain: sourceDomain(url), thumbnail: '', type: 'audio', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { audio: downloadUrl(url, 'audio', null, null, parsed.toString()) } })) : []),
     ...(includeImages ? imageUrls.map((url, position) => ({ index: position + 1, title: `Image ${position + 1}`, fileType: fileType(url), sourceDomain: sourceDomain(url), thumbnail: previewUrl(url, parsed.toString()), type: 'image', duration: null, maxDuration: null, resolutions: [], downloads: { image: downloadUrl(url, 'image', null, null, parsed.toString()) } })) : [])
   ];
-  return { title: `${parsed.hostname} media`, source: 'web-scan', scan: { host: parsed.hostname, mode: requestedMediaType, images: imageUrls.length, videos: videoUrls.length, audio: audioUrls.length }, count: items.length, items };
+  return { title: `${parsed.hostname} media`, source: 'web-scan', scan: { host: parsed.hostname, mode: requestedMediaType, images: imageUrls.length, videos: videoUrls.length, audio: audioUrls.length, ...(pageScan ? { pages: pageScan.pagesScanned, pageLimit: pageScan.pageLimit } : {}) }, count: items.length, items };
 }
 
 async function directMediaType(parsed) {
@@ -280,10 +282,7 @@ function isInstagramResizedPreview(value) {
   }
 }
 
-async function extractPageImages(parsed) {
-  const response = await fetch(parsed, { signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
-  if (!response.ok) return [];
-  const html = await response.text();
+function parsePageImages(parsed, html) {
   const $ = cheerio.load(html);
   const candidates = [];
   const addSourceSet = sourceSet => {
@@ -303,7 +302,51 @@ async function extractPageImages(parsed) {
   });
   const normalized = [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))];
   const fullSize = normalized.filter(value => !isInstagramResizedPreview(value));
-  return /(^|\.)instagram\.com$/i.test(parsed.hostname) && fullSize.length ? fullSize : normalized;
+  const images = /(^|\.)instagram\.com$/i.test(parsed.hostname) && fullSize.length ? fullSize : normalized;
+  const links = [];
+  $('a[href]').each((_, element) => {
+    const href = $(element).attr('href');
+    if (!href) return;
+    try {
+      const link = new URL(href, parsed);
+      const label = `${$(element).attr('rel') || ''} ${$(element).attr('aria-label') || ''} ${$(element).text() || ''}`.toLowerCase();
+      const pagination = /\bnext\b|\bold(er)?\b|\bpage\s*\d+\b/.test(label) || /(?:[?&](?:page|p|pg|page_num)=\d+|\/page\/\d+(?:\/|$))/i.test(link.href);
+      if (link.origin === parsed.origin && pagination) links.push(link.toString());
+    } catch {}
+  });
+  return { images, links: [...new Set(links)] };
+}
+
+async function extractPageImages(parsed) {
+  const response = await fetch(parsed, { signal: AbortSignal.timeout(metadataTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+  if (!response.ok) return [];
+  return parsePageImages(parsed, await response.text()).images;
+}
+
+async function scanWebsiteImages(parsed, requestedPages = pageScanMaxPages) {
+  const pageLimit = Math.min(pageScanMaxPages, Math.max(1, Number.parseInt(requestedPages, 10) || pageScanMaxPages));
+  const queue = [parsed.toString()];
+  const seen = new Set();
+  const images = [];
+  let pagesScanned = 0;
+  while (queue.length && pagesScanned < pageLimit) {
+    const pageUrl = queue.shift();
+    if (seen.has(pageUrl)) continue;
+    seen.add(pageUrl);
+    let response;
+    try {
+      response = await fetch(pageUrl, { redirect: 'follow', signal: AbortSignal.timeout(pageScanTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
+    } catch { continue; }
+    if (!response.ok) continue;
+    let finalUrl;
+    try { finalUrl = new URL(response.url || pageUrl); } catch { continue; }
+    if (finalUrl.origin !== parsed.origin) continue;
+    const data = parsePageImages(finalUrl, await response.text());
+    images.push(...data.images);
+    for (const link of data.links) if (!seen.has(link)) queue.push(link);
+    pagesScanned += 1;
+  }
+  return { images: [...new Set(images)], pagesScanned, pageLimit };
 }
 
 async function extractPageVideos(parsed) {
@@ -390,11 +433,12 @@ app.post('/api/media', async (req, res) => {
     if (!isSocialMediaUrl(parsed)) {
       const videoUrls = ['image', 'audio'].includes(requestedMediaType) ? [] : await extractPageVideos(parsed).catch(() => []);
       const audioUrls = ['image', 'video'].includes(requestedMediaType) ? [] : await extractPageAudio(parsed).catch(() => []);
-      const imageUrls = ['video', 'audio'].includes(requestedMediaType) ? [] : await extractPageImages(parsed).catch(() => []);
+      const pageScan = req.body.scanWebsite && !['video', 'audio'].includes(requestedMediaType) ? await scanWebsiteImages(parsed, req.body.pageLimit).catch(() => null) : null;
+      const imageUrls = ['video', 'audio'].includes(requestedMediaType) ? [] : pageScan ? pageScan.images : await extractPageImages(parsed).catch(() => []);
       const autoScanNeedsExtractor = requestedMediaType === 'auto' && imageUrls.length && !videoUrls.length && !audioUrls.length;
       if (!autoScanNeedsExtractor && (videoUrls.length || audioUrls.length || imageUrls.length)) {
         logStage('video extraction succeeded', parsed, `${videoUrls.length} candidates`);
-        const data = webMediaData(parsed, requestedMediaType, imageUrls, videoUrls, audioUrls);
+        const data = webMediaData(parsed, requestedMediaType, imageUrls, videoUrls, audioUrls, pageScan);
         metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
         return res.json(data);
       }
@@ -583,4 +627,5 @@ app.get('/sw.js', (req, res) => res.type('application/javascript').sendFile(path
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'clipgrab.html')));
 if (require.main === module) app.listen(port, () => console.log(`ClipGrab running at http://localhost:${port}`));
 app.extractPageVideos = extractPageVideos;
+app.scanWebsiteImages = scanWebsiteImages;
 module.exports = app;
