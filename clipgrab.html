@@ -204,6 +204,10 @@
   .web-tools-modal{position:fixed;inset:0;z-index:30;background:var(--bg);display:none;align-items:stretch;justify-content:stretch;padding:0;}
   .web-tools-modal.open{display:flex;}
   .web-tools-dialog{width:100%;height:100%;max-height:none;overflow:auto;background:var(--bg);border:0;border-radius:0;padding:clamp(20px,5vw,56px) max(20px,calc((100vw - 760px) / 2));box-shadow:none;color:#fff;}
+  .launch-screen{position:fixed;inset:0;z-index:100;background:#A7FF1F;color:#101316;display:grid;place-items:center;text-align:center;transition:opacity .2s ease,visibility .2s ease;}
+  .launch-screen.is-ready{opacity:0;visibility:hidden;pointer-events:none;}
+  .launch-screen-title{font:700 clamp(30px,8vw,52px)/1 'Space Grotesk',sans-serif;letter-spacing:0;}
+  .launch-screen-motto{margin-top:12px;font:600 14px Inter,sans-serif;}
   .web-tools-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#fff;margin-bottom:4px;}
   .web-tools-dialog-header h2{font-size:20px;}
   .web-tools-subtitle{display:block;color:#AEB2C4;font-size:12px;margin-top:3px;}
@@ -588,6 +592,7 @@
 </style>
 </head>
 <body>
+<div class="launch-screen" id="launch-screen" role="status" aria-live="polite"><div><div class="launch-screen-title">ClipGrab</div><div class="launch-screen-motto">One simple link. Every platform.</div></div></div>
 <!-- Render assembles the page sections from sections/*.html. -->
 <!-- SECTION:header -->
 <!-- SECTION:hero -->
@@ -597,6 +602,7 @@
 <!-- SECTION:footer -->
 
 <script>
+  requestAnimationFrame(() => document.getElementById('launch-screen')?.classList.add('is-ready'));
   const platformCopy = {
     TikTok: {
       title: "Download TikTok videos and images",
