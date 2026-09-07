@@ -1,0 +1,48 @@
+<section class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">One simple link. Every platform.</div>
+    <div class="tabs" id="tabs">
+      <button class="tab active" type="button" data-platform="TikTok">TikTok</button>
+      <button class="tab" type="button" data-platform="Instagram">Instagram</button>
+      <button class="tab" type="button" data-platform="Facebook">Facebook</button>
+      <button class="tab" type="button" data-platform="Twitter">Twitter / X</button>
+      <button class="tab" type="button" data-platform="Reddit">Reddit (Coming soon)</button>
+      <button class="tab" type="button" data-platform="Web">Web</button>
+    </div>
+
+    <h1 id="hero-title">Download videos and images from anywhere</h1>
+    <p id="hero-sub">Paste a public social media link and save the media in its original quality.</p>
+
+    <div class="reddit-coming-soon" id="reddit-coming-soon" hidden>
+      <strong>Reddit downloads are coming soon</strong>
+      <span>Try Web mode for public Reddit media. Some posts may not resolve.</span>
+      <button class="web-cta" type="button" id="reddit-web-btn">Try Web mode</button>
+    </div>
+
+    <form class="fetch-bar" id="fetch-form">
+      <input type="url" id="url-input" placeholder="Paste a public link from any supported site" aria-label="Public media URL" autocomplete="url" required>
+      <div class="input-tools">
+        <button class="paste-btn" type="button" id="paste-btn">Paste</button>
+        <button type="submit">Find media</button>
+      </div>
+    </form>
+    <div class="fetch-hint" id="fetch-hint">Supports TikTok, Instagram, Facebook, X and public websites. Use public links you are allowed to save.</div>
+    <div class="hero-tools"><button class="hero-tool" id="share-btn" type="button" hidden>Share ClipGrab</button><button class="hero-tool" id="install-btn" type="button" hidden>Install ClipGrab</button></div>
+    <div class="history-panel" id="history-panel" hidden><div class="history-header"><span>Recent links</span><button class="history-clear" id="history-clear" type="button">Clear history</button></div><div class="history-list" id="history-list"></div></div>
+    <div class="result-card gallery" id="result-card" aria-live="polite">
+      <div class="result-body"><div class="result-title" id="result-title">Media link received</div><div class="result-sub" id="result-sub">Choose a format to continue</div><div class="result-status" id="result-status"></div><div class="result-actions"><button class="external-download" id="retry-btn" type="button" hidden>Retry</button><button class="external-download" id="copy-result-btn" type="button" hidden>Copy link</button></div></div>
+    </div>
+    <div class="media-grid" id="media-grid"></div>
+    <div class="gallery-viewer" id="gallery-viewer" aria-hidden="true">
+      <button class="gallery-close" id="gallery-close" type="button" aria-label="Close gallery">&times;</button>
+      <div class="gallery-topbar"><span id="gallery-caption">Image</span><span id="gallery-counter">1 / 1</span></div>
+      <button class="gallery-nav gallery-prev" id="gallery-prev" type="button" aria-label="Previous image">&#8592;</button>
+      <div class="gallery-track" id="gallery-track"></div>
+      <button class="gallery-nav gallery-next" id="gallery-next" type="button" aria-label="Next image">&#8594;</button>
+    </div>
+    <div class="video-viewer" id="video-viewer" aria-hidden="true">
+      <button class="gallery-close" id="video-close" type="button" aria-label="Close video player">&times;</button>
+      <video id="video-player" controls autoplay playsinline></video>
+    </div>
+  </div>
+</section>
