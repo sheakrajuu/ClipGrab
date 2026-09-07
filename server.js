@@ -399,7 +399,7 @@ app.post('/api/media', async (req, res) => {
       }
     }
     try {
-      const raw = await runYtDlp(extractorArgs(cacheKey));
+      const raw = await runYtDlp(extractorArgs(parsed.toString()));
       const info = JSON.parse(raw);
       if (requestedMediaType !== 'video') assertDurationAllowed(info, parsed);
       const entries = flattenEntries(info);
@@ -583,4 +583,5 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'clipgrab.html')));
 if (require.main === module) app.listen(port, () => console.log(`ClipGrab running at http://localhost:${port}`));
 app.extractPageImages = extractPageImages;
 app.extractPageVideos = extractPageVideos;
+app.extractorArgs = extractorArgs;
 module.exports = app;
