@@ -41,11 +41,11 @@ test('health endpoint returns service status and request id', async () => {
 });
 
 test('homepage and PWA assets are available', async () => {
-  const [page, manifest, worker, maskableIcon] = await Promise.all([
+  const [page, manifest, worker, appIcon] = await Promise.all([
     fetch(`${baseUrl}/`),
     fetch(`${baseUrl}/manifest.webmanifest`),
     fetch(`${baseUrl}/sw.js`),
-    fetch(`${baseUrl}/icons/icon-maskable.png`)
+    fetch(`${baseUrl}/icons/android-chrome-512x512.png`)
   ]);
   assert.equal(page.status, 200);
   const pageText = await page.text();
@@ -63,13 +63,13 @@ test('homepage and PWA assets are available', async () => {
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
   assert.equal(manifestData.short_name, 'ClipGrab');
-  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-512x512.png?v=6' && icon.sizes === '512x512' && icon.purpose === 'any'));
+  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/android-chrome-512x512.png?v=7' && icon.sizes === '512x512' && icon.purpose === 'any'));
   assert.equal(worker.status, 200);
   const workerText = await worker.text();
-  assert.match(workerText, /clipgrab-shell-v8/);
-  assert.match(workerText, /icon-512x512\.png\?v=6/);
-  assert.equal(maskableIcon.status, 200);
-  assert.match(maskableIcon.headers.get('content-type'), /image\/png/);
+  assert.match(workerText, /clipgrab-shell-v9/);
+  assert.match(workerText, /android-chrome-512x512\.png\?v=7/);
+  assert.equal(appIcon.status, 200);
+  assert.match(appIcon.headers.get('content-type'), /image\/png/);
 });
 
 test('extractor arguments keep the original URL separate from cache mode', () => {
