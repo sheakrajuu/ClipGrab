@@ -227,6 +227,7 @@
   .web-settings-dialog-note{color:#AEB2C4;font-size:13px;}
   .web-tools-dialog .batch-section,.web-tools-dialog .saved-url-section{display:block;max-width:none;margin:14px 0 0;}
   .web-settings-section .saved-library-section{margin-top:20px;}
+  .web-settings-section .saved-url-list{max-height:none;overflow:visible;}
   .saved-filter-picker{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
   .saved-filter-option{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:9px 12px;font:700 12px Inter,sans-serif;cursor:pointer;}
   .saved-filter-option.active{background:var(--accent);border-color:var(--accent);color:var(--bg);}
@@ -327,8 +328,8 @@
     .web-tools-dialog{padding:18px 16px 32px;}
     .web-tools-dialog-header{align-items:flex-start;}
     .web-tools-dialog-header h2{font-size:18px;}
-    .web-settings-layout{grid-template-columns:minmax(112px,30%) minmax(0,1fr);gap:12px;margin-top:18px;}
-    .web-settings-nav{padding-right:8px;}
+    .web-settings-layout{display:block;min-height:0;margin-top:18px;}
+    .web-settings-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-right:0;border-bottom:1px solid rgba(255,255,255,.12);padding:0 0 12px;margin-bottom:22px;}
     .web-settings-nav-item{padding:10px 7px;font-size:11px;line-height:1.25;}
     .web-settings-section h3{font-size:21px;}
     .batch-form{grid-template-columns:1fr;}
