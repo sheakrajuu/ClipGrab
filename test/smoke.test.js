@@ -47,11 +47,9 @@ test('homepage and PWA assets are available', async () => {
   assert.match(pageText, /5 videos/);
   assert.match(pageText, /20 images/);
   assert.match(pageText, /Are you 18 or older/);
-  assert.match(pageText, /id="website-scan-url"/);
-  assert.match(pageText, /value="100"/);
-  assert.match(pageText, /Website pages/);
+  assert.doesNotMatch(pageText, /id="website-scan-url"/);
+  assert.doesNotMatch(pageText, /Website pages/);
   assert.match(pageText, /Cancel scan/);
-  assert.match(pageText, /Download all images/);
   assert.match(pageText, /Image batch/);
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
