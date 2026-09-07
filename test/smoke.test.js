@@ -48,16 +48,22 @@ test('homepage and PWA assets are available', async () => {
     fetch(`${baseUrl}/icons/icon-maskable.png`)
   ]);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /ClipGrab/);
+  const pageText = await page.text();
+  assert.match(pageText, /ClipGrab/);
+  assert.match(pageText, /id="settings-btn"/);
+  assert.match(pageText, /Media Hub/);
+  assert.match(pageText, /data-settings-section="history"/);
+  assert.match(pageText, /id="saved-batch-list"/);
+  assert.match(pageText, /id="private-mode"/);
   imageFixtureUrl = `http://127.0.0.1:${fixtureServer.address().port}/image-page`;
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
   assert.equal(manifestData.short_name, 'ClipGrab');
-  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-512x512.png?v=5' && icon.sizes === '512x512' && icon.purpose === 'any'));
+  assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-512x512.png?v=6' && icon.sizes === '512x512' && icon.purpose === 'any'));
   assert.equal(worker.status, 200);
   const workerText = await worker.text();
-  assert.match(workerText, /clipgrab-shell-v5/);
-  assert.match(workerText, /icon-512x512\.png\?v=5/);
+  assert.match(workerText, /clipgrab-shell-v6/);
+  assert.match(workerText, /icon-512x512\.png\?v=6/);
   assert.equal(maskableIcon.status, 200);
   assert.match(maskableIcon.headers.get('content-type'), /image\/png/);
 });
