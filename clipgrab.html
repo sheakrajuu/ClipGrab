@@ -684,11 +684,6 @@
   const heroSub = document.getElementById('hero-sub');
   const urlInput = document.getElementById('url-input');
   const pasteButton = document.getElementById('paste-btn');
-  const webScanControls = document.getElementById('web-scan-controls');
-  const webScanModeOptions = document.querySelectorAll('.web-scan-mode-option');
-  const webPageLimitWrap = document.getElementById('web-page-limit-wrap');
-  const webPageLimit = document.getElementById('web-page-limit');
-  const webScanModeHint = document.getElementById('web-scan-mode-hint');
   const fetchHint = document.getElementById('fetch-hint');
   const stepsWrap = document.getElementById('how-to-steps');
   const resultCard = document.getElementById('result-card');
@@ -698,7 +693,6 @@
   const retryButton = document.getElementById('retry-btn');
   const copyResultButton = document.getElementById('copy-result-btn');
   const cancelScanButton = document.getElementById('cancel-scan-btn');
-  const downloadWebsiteAllButton = document.getElementById('download-website-all-btn');
   const mediaGrid = document.getElementById('media-grid');
   const fetchSubmitButton = document.querySelector('#fetch-form button[type="submit"]');
   const savedUrlSection = document.getElementById('saved-url-section');
@@ -714,10 +708,6 @@
   const mediaTypeHint = document.getElementById('media-type-hint');
   const webFilterType = document.getElementById('web-filter-type');
   const webFilterSort = document.getElementById('web-filter-sort');
-  const websiteScanForm = document.getElementById('website-scan-form');
-  const websiteScanUrl = document.getElementById('website-scan-url');
-  const websiteScanLimit = document.getElementById('website-scan-limit');
-  const websiteScanStatus = document.getElementById('website-scan-status');
   const unhideImagesButton = document.getElementById('unhide-images-btn');
   const webToolsButton = document.getElementById('web-tools-btn');
   const webToolsModal = document.getElementById('web-tools-modal');
@@ -751,7 +741,6 @@
   let viewerScrollY = 0;
   let webToolsScrollY = 0;
   let ageRetryAction = null;
-  let selectedWebScanMode = 'page';
   let activeRequestController = null;
   let renderedMediaItems = [];
   let renderedMediaStart = 0;
@@ -938,7 +927,7 @@
       const batch = Array.isArray(entry.urls);
       const value = batch ? entry.urls.join('\n') : entry.url;
       const type = savedMediaType(entry);
-      if (selectedWebMediaType !== 'all' && (entry.mediaType || type) !== selectedWebMediaType) return '';
+      if (!['auto', 'all'].includes(selectedWebMediaType) && (entry.mediaType || type) !== selectedWebMediaType) return '';
       return `<div class="saved-url-item"><button class="saved-url-load" type="button" data-url="${escapeHtml(value)}" data-batch="${batch}" data-media-type="${type}" title="Open ${escapeHtml(entry.name)}">${escapeHtml(entry.name)}<span>${escapeHtml(batch ? `${entry.urls.length} URLs` : entry.url)} · ${type}s</span></button><button class="saved-url-remove" type="button" data-index="${index}" aria-label="Remove saved URL">&times;</button></div>`;
     }).join('');
   }
@@ -1386,7 +1375,6 @@
     copyResultButton.hidden = true;
     cancelScanButton.hidden = false;
     cancelScanButton.disabled = false;
-    downloadWebsiteAllButton.hidden = true;
     fetchSubmitButton.disabled = true;
     mediaGrid.innerHTML = '';
     let data = selectedPlatform === 'Web' && !force ? getCachedWebResult(value, selectedWebMediaType) : null;
@@ -1421,7 +1409,6 @@
     recordHistory(value, selectedPlatform, resultTitle.textContent);
     cancelScanButton.hidden = true;
     cancelScanButton.disabled = false;
-    downloadWebsiteAllButton.hidden = !(options.scanWebsite && data.items?.some(item => item.type === 'image'));
     fetchSubmitButton.disabled = false;
   }
 
@@ -1447,7 +1434,6 @@
       savedUrlSection.hidden = !isWeb;
       savedLinksSection.hidden = !isWeb || readSavedUrls().length === 0;
       webToolsButton.classList.toggle('visible', isWeb);
-      webScanControls.hidden = !isWeb;
       stepsWrap.innerHTML = data.steps.map((s, i) =>
         `<div class="step"><div class="step-num">${i+1}</div><p>${s}</p></div>`
       ).join('');
@@ -1474,9 +1460,7 @@
       } else if (selectedPlatform !== 'Web' && detectedPlatform !== selectedName) {
         throw new Error(`This box is set to ${selectedPlatform}. Select ${detectedPlatform} or choose Web for another site.`);
       }
-      const scanWebsite = selectedPlatform === 'Web' && selectedWebScanMode === 'website';
-      if (scanWebsite) setWebMediaType('image');
-      await searchMedia(value, false, { scanWebsite, pageLimit: webPageLimit.value });
+      await searchMedia(value);
     } catch (error) {
       if (error.name === 'AbortError') {
         resultTitle.textContent = 'Scan cancelled';
@@ -1698,41 +1682,10 @@
     try { await navigator.share({ title: 'ClipGrab', text: 'Save public media with ClipGrab.', url: window.location.href }); } catch {}
   });
   mediaTypeOptions.forEach(option => option.addEventListener('click', () => setWebMediaType(option.dataset.mediaType)));
-  webScanModeOptions.forEach(option => option.addEventListener('click', () => {
-    selectedWebScanMode = option.dataset.scanMode === 'website' ? 'website' : 'page';
-    webScanModeOptions.forEach(button => {
-      const active = button === option;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-pressed', String(active));
-    });
-    webPageLimitWrap.hidden = selectedWebScanMode !== 'website';
-    webScanModeHint.textContent = selectedWebScanMode === 'website'
-      ? 'Collect images across same-site pagination and keep the result in this browser.'
-      : 'Scan the pasted page for available media.';
-  }));
   cancelScanButton.addEventListener('click', () => {
     activeRequestController?.abort();
     cancelScanButton.disabled = true;
     setResultStatus('Cancelling scan...', 'error');
-  });
-  websiteScanForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    const value = websiteScanUrl.value.trim();
-    const pageLimit = Math.min(100, Math.max(1, Number.parseInt(websiteScanLimit.value, 10) || 100));
-    websiteScanLimit.value = pageLimit;
-    try {
-      new URL(value);
-      if (selectedPlatform !== 'Web') document.querySelector('.tab[data-platform="Web"]')?.click();
-      setWebMediaType('image');
-      urlInput.value = value;
-      websiteScanStatus.textContent = `Scanning up to ${pageLimit} same-site pages...`;
-      closeWebTools();
-      await searchMedia(value, true, { scanWebsite: true, pageLimit });
-      websiteScanStatus.textContent = `Website scan complete. Results are cached in this browser.`;
-    } catch (error) {
-      websiteScanStatus.textContent = error.message || 'Website scan failed. Try another public link.';
-      showErrorWithFallback(error.message || 'Website scan failed.', 'Web');
-    }
   });
   function refreshFilteredResults() {
     if (!renderedMediaItems.length) return;
@@ -1781,18 +1734,6 @@
     state.title = batchName;
     saveState(state);
     saveSectionState();
-  });
-  downloadWebsiteAllButton.addEventListener('click', async () => {
-    const images = renderedMediaItems.filter(item => item.type === 'image' && item.downloads?.image);
-    if (!images.length) return;
-    downloadWebsiteAllButton.disabled = true;
-    for (let index = 0; index < images.length; index += 1) {
-      const item = images[index];
-      setResultStatus(`Downloading image ${index + 1} of ${images.length}...`);
-      await downloadFile(item.downloads.image, downloadWebsiteAllButton, `${safeFileName(item.title, `clipgrab-image-${index + 1}`)}.jpg`);
-    }
-    setResultStatus(`Downloaded ${images.length} image${images.length === 1 ? '' : 's'}.`, 'success');
-    downloadWebsiteAllButton.disabled = false;
   });
   downloadAllButton.addEventListener('click', async () => {
     const status = document.getElementById('batch-status');
