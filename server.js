@@ -371,7 +371,7 @@ app.post('/api/media', async (req, res) => {
     const requestedMediaType = ['auto', 'all', 'image', 'video', 'audio'].includes(req.body.mediaType) ? req.body.mediaType : 'auto';
     logStage('media request', parsed);
     await rejectPrivateHost(parsed);
-    const cacheKey = parsed.toString();
+    const cacheKey = `${requestedMediaType}:${parsed.toString()}`;
     const cached = metadataCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return res.json(cached.data);
     metadataCache.delete(cacheKey);
@@ -391,8 +391,7 @@ app.post('/api/media', async (req, res) => {
       const videoUrls = ['image', 'audio'].includes(requestedMediaType) ? [] : await extractPageVideos(parsed).catch(() => []);
       const audioUrls = ['image', 'video'].includes(requestedMediaType) ? [] : await extractPageAudio(parsed).catch(() => []);
       const imageUrls = ['video', 'audio'].includes(requestedMediaType) ? [] : await extractPageImages(parsed).catch(() => []);
-      const autoScanNeedsExtractor = requestedMediaType === 'auto' && imageUrls.length && !videoUrls.length && !audioUrls.length;
-      if (!autoScanNeedsExtractor && (videoUrls.length || audioUrls.length || imageUrls.length)) {
+      if (videoUrls.length || audioUrls.length || imageUrls.length) {
         logStage('video extraction succeeded', parsed, `${videoUrls.length} candidates`);
         const data = webMediaData(parsed, requestedMediaType, imageUrls, videoUrls, audioUrls);
         metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
@@ -582,5 +581,6 @@ app.get('/manifest.webmanifest', (req, res) => res.sendFile(path.join(__dirname,
 app.get('/sw.js', (req, res) => res.type('application/javascript').sendFile(path.join(__dirname, 'sw.js')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'clipgrab.html')));
 if (require.main === module) app.listen(port, () => console.log(`ClipGrab running at http://localhost:${port}`));
+app.extractPageImages = extractPageImages;
 app.extractPageVideos = extractPageVideos;
 module.exports = app;
