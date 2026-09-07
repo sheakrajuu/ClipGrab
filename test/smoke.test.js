@@ -49,13 +49,17 @@ test('homepage and PWA assets are available', async () => {
   assert.match(pageText, /Are you 18 or older/);
   assert.match(pageText, /id="website-scan-url"/);
   assert.match(pageText, /value="100"/);
+  assert.match(pageText, /Website pages/);
+  assert.match(pageText, /Cancel scan/);
+  assert.match(pageText, /Download all images/);
+  assert.match(pageText, /Image batch/);
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
   assert.equal(manifestData.short_name, 'ClipGrab');
   assert.ok(manifestData.icons.some(icon => icon.src === '/icons/icon-app-512.png?v=1' && icon.purpose === 'any maskable'));
   assert.equal(worker.status, 200);
   const workerText = await worker.text();
-  assert.match(workerText, /clipgrab-shell-v5/);
+  assert.match(workerText, /clipgrab-shell-v8/);
   assert.match(workerText, /icon-app-192\.png\?v=1/);
   assert.equal(appIcon.status, 200);
   assert.match(appIcon.headers.get('content-type'), /image\/png/);
