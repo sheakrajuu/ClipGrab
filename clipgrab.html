@@ -1315,7 +1315,7 @@
       const resolutions = item.resolutions.length ? `<select class="resolution" data-item="${item.index}" data-download="${escapeHtml(item.downloads.video)}"><option value="">Best available quality</option>${item.resolutions.map(height => `<option value="${height}" ${item.selectedHeight === height ? 'selected' : ''}>${height}p</option>`).join('')}</select>` : '';
       const formats = item.type === 'video' ? '<div class="format-picker" role="group" aria-label="Download format"><button class="format-option active" type="button" data-format="video" aria-pressed="true">MP4</button><button class="format-option" type="button" data-format="audio" aria-pressed="false">MP3</button></div>' : item.type === 'audio' ? '<div class="format-picker" role="group" aria-label="Download format"><button class="format-option active" type="button" data-format="audio" aria-pressed="true">MP3</button></div>' : '';
       const image = item.type === 'image'
-          ? (item.thumbnail ? `<img class="image-preview" src="${escapeHtml(item.thumbnail)}" data-gallery-src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.title || 'Image')}">` : '<div class="result-thumb"></div>')
+          ? (item.thumbnail ? `<img class="image-preview" src="${escapeHtml(item.thumbnail)}"${item.sourceUrl ? ` data-source-src="${escapeHtml(item.sourceUrl)}"` : ''} data-gallery-src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.title || 'Image')}">` : '<div class="result-thumb"></div>')
         : item.type === 'audio'
           ? `<audio controls preload="metadata" src="${escapeHtml(item.downloads.audio || '')}"></audio>`
           : (tooLong ? '<div class="result-thumb"></div>' : `<video controls preload="metadata"${item.thumbnail ? ` poster="${escapeHtml(item.thumbnail)}"` : ''} src="${escapeHtml(item.downloads.video)}&preview=1"></video>`);
@@ -1678,6 +1678,13 @@
   });
   mediaGrid.addEventListener('error', event => {
     if (!event.target.matches('img')) return;
+    const directSource = event.target.dataset.sourceSrc;
+    if (directSource && event.target.dataset.directRetried !== 'true') {
+      event.target.dataset.directRetried = 'true';
+      event.target.src = directSource;
+      event.target.dataset.gallerySrc = directSource;
+      return;
+    }
     const fallback = document.createElement('div');
     fallback.className = 'image-fallback';
     fallback.textContent = 'Image unavailable';

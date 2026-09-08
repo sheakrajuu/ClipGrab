@@ -119,6 +119,30 @@ function durationLimitForUrl(parsed) {
   return isSocialMediaUrl(parsed) ? socialVideoLimitSeconds : webVideoLimitSeconds;
 }
 
+function upstreamMediaHeaders(parsed, referer = null) {
+  const headers = { 'User-Agent': 'ClipGrab/1.0' };
+  if (isSocialMediaUrl(parsed) || (referer && isSocialMediaUrl(referer))) {
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36';
+  }
+  if (referer) headers.Referer = referer.toString();
+  return headers;
+}
+
+function isTikTokPhotoPost(parsed) {
+  return /(^|\.)tiktok\.com$/i.test(parsed.hostname) && /\/photo\//i.test(parsed.pathname);
+}
+
+async function resolveSocialShortUrl(parsed) {
+  if (!/(^|\.)vt\.tiktok\.com$/i.test(parsed.hostname)) return parsed;
+  const response = await fetch(parsed, {
+    redirect: 'follow',
+    signal: AbortSignal.timeout(metadataTimeoutMs),
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36' }
+  });
+  const resolved = new URL(response.url || parsed.toString());
+  return /(^|\.)tiktok\.com$/i.test(resolved.hostname) ? resolved : parsed;
+}
+
 function assertDurationAllowed(info, parsed) {
   const duration = Number(info && info.duration);
   if (Number.isFinite(duration) && duration > durationLimitForUrl(parsed)) {
@@ -155,6 +179,15 @@ function ytDlpCommands(args) {
   return [['yt-dlp', args], ['python3', ['-m', 'yt_dlp', ...args]]];
 }
 
+function authorizedCookieOptions() {
+  const cookieFile = process.env.CLIPGRAB_COOKIES_FILE;
+  if (!cookieFile) return [];
+  try {
+    if (fs.statSync(cookieFile).isFile()) return ['--cookies', cookieFile];
+  } catch {}
+  return [];
+}
+
 async function runYtDlp(args) {
   let lastError;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -177,11 +210,12 @@ async function runYtDlpToFile(args, outputPath) {
 function extractorOptions(sourceUrl) {
   try {
     const hostname = new URL(sourceUrl).hostname.toLowerCase().replace(/^www\./, '');
-    return hostname === 'tiktok.com' || hostname.endsWith('.tiktok.com')
+    const options = hostname === 'tiktok.com' || hostname.endsWith('.tiktok.com')
       ? ['--extractor-args', 'tiktok:app_name=musical_ly', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36', '--referer', 'https://www.tiktok.com/']
       : [];
+    return [...options, ...authorizedCookieOptions()];
   } catch {
-    return [];
+    return authorizedCookieOptions();
   }
 }
 
@@ -212,7 +246,7 @@ function webMediaData(parsed, requestedMediaType, imageUrls = [], videoUrls = []
   const items = [
     ...(includeVideos ? videoUrls.map((url, position) => ({ index: position + 1, title: `Video ${position + 1}`, fileType: fileType(url), sourceDomain: sourceDomain(url), thumbnail: '', type: 'video', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { video: downloadUrl(url, 'video', null, null, parsed.toString()), audio: downloadUrl(url, 'audio', null, null, parsed.toString()) } })) : []),
     ...(includeAudio ? audioUrls.map((url, position) => ({ index: position + 1, title: `Audio ${position + 1}`, fileType: fileType(url), sourceDomain: sourceDomain(url), thumbnail: '', type: 'audio', duration: null, maxDuration: durationLimitForUrl(parsed), resolutions: [], downloads: { audio: downloadUrl(url, 'audio', null, null, parsed.toString()) } })) : []),
-    ...(includeImages ? imageUrls.map((url, position) => ({ index: position + 1, title: `Image ${position + 1}`, fileType: fileType(url), sourceDomain: sourceDomain(url), thumbnail: previewUrl(url, parsed.toString()), type: 'image', duration: null, maxDuration: null, resolutions: [], downloads: { image: downloadUrl(url, 'image', null, null, parsed.toString()) } })) : [])
+    ...(includeImages ? imageUrls.map((url, position) => ({ index: position + 1, title: `Image ${position + 1}`, fileType: fileType(url), sourceDomain: sourceDomain(url), sourceUrl: url, thumbnail: previewUrl(url, parsed.toString()), type: 'image', duration: null, maxDuration: null, resolutions: [], downloads: { image: downloadUrl(url, 'image', null, null, parsed.toString()) } })) : [])
   ];
   return { title: `${parsed.hostname} media`, source: 'web-scan', scan: { host: parsed.hostname, mode: requestedMediaType, images: imageUrls.length, videos: videoUrls.length, audio: audioUrls.length }, count: items.length, items };
 }
@@ -237,8 +271,9 @@ async function isDirectMedia(parsed) {
 
 function itemFromInfo(info, sourceUrl, index) {
   const heights = [...new Set((info.formats || []).map(format => format.height).filter(height => Number.isInteger(height)))].sort((a, b) => b - a);
-  const image = /^(jpg|jpeg|png|gif|webp|avif)$/i.test(info.ext || '');
-  const originalImageUrl = image && /^https?:/i.test(info.url || '') ? info.url : sourceUrl;
+  const imageUrl = [info.url, info.image, info.original_url].find(value => /^(https?:)?\/\//i.test(String(value || '')) && /\.(?:jpg|jpeg|png|gif|webp|avif)(?:[?#]|$)/i.test(String(value)));
+  const image = /^(jpg|jpeg|png|gif|webp|avif)$/i.test(info.ext || '') || Boolean(imageUrl);
+  const originalImageUrl = image && imageUrl ? imageUrl : sourceUrl;
   const downloads = {
     video: downloadUrl(sourceUrl, 'video', index),
     image: downloadUrl(originalImageUrl, 'image', index, null, sourceUrl)
@@ -259,6 +294,37 @@ function flattenEntries(info) {
   if (!info) return [];
   if (!Array.isArray(info.entries)) return [info];
   return info.entries.filter(Boolean).flatMap(entry => Array.isArray(entry.entries) ? flattenEntries(entry) : [entry]);
+}
+
+function imageEntriesFromInfo(info) {
+  const imageCollections = ['images', 'image_urls', 'imageUrls', 'image_post_info', 'imageURL'];
+  const candidates = [];
+  const visit = value => {
+    if (!value) return;
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (typeof value === 'string') {
+      if (/^https?:\/\//i.test(value)) candidates.push({ url: value, ext: path.extname(new URL(value).pathname).slice(1) || 'jpg' });
+      return;
+    }
+    if (typeof value !== 'object') return;
+    const url = value.url || value.original_url || value.image_url || value.display_url;
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) candidates.push({ ...value, url, ext: value.ext || path.extname(new URL(url).pathname).slice(1) || 'jpg' });
+    for (const key of ['url_list', 'urlList', 'imageURL']) if (value[key]) visit(value[key]);
+    for (const key of imageCollections) if (value[key]) visit(value[key]);
+  };
+  for (const key of imageCollections) visit(info[key]);
+  return candidates;
+}
+
+function normalizedExtractorEntries(info) {
+  const entries = [...flattenEntries(info), ...imageEntriesFromInfo(info)];
+  const seen = new Set();
+  return entries.filter(entry => {
+    const key = entry.url || entry.original_url || entry.webpage_url || entry.thumbnail || entry.id;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function publicSourceError(error) {
@@ -304,6 +370,42 @@ async function extractPageImages(parsed) {
   const normalized = [...new Set(candidates.filter(Boolean).map(value => { try { return new URL(value, parsed).toString(); } catch { return null; } }).filter(value => value && /^https?:/i.test(value)))];
   const fullSize = normalized.filter(value => !isInstagramResizedPreview(value));
   return /(^|\.)instagram\.com$/i.test(parsed.hostname) && fullSize.length ? fullSize : normalized;
+}
+
+async function extractRenderedPageImages(parsed) {
+  if (process.env.CLIPGRAB_BROWSER_FALLBACK === '0' || !/(^|\.)instagram\.com$|(^|\.)tiktok\.com$/i.test(parsed.hostname)) return [];
+  let playwright;
+  try { playwright = require('playwright'); } catch { return []; }
+  const browser = await playwright.chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36' });
+    await page.goto(parsed.toString(), { waitUntil: 'domcontentloaded', timeout: metadataTimeoutMs });
+    await page.waitForTimeout(1500);
+    const candidates = await page.evaluate(() => {
+      const values = [...document.images].flatMap(image => [image.currentSrc, image.src, image.srcset?.split(',')[0]?.trim().split(/\s+/)[0]]);
+      const addStateImages = (value, imageContext = false) => {
+        if (!value) return;
+        if (Array.isArray(value)) return value.forEach(item => addStateImages(item, imageContext));
+        if (typeof value === 'string') {
+          if (/^https?:\/\//i.test(value) && (imageContext || /(?:\.jpe?g|\.png|\.webp|image|avif)/i.test(value))) values.push(value);
+          return;
+        }
+        if (typeof value !== 'object') return;
+        for (const [key, child] of Object.entries(value)) {
+          if (/image|url_list|display_url/i.test(key)) addStateImages(child, true);
+          else if (/cover/i.test(key)) addStateImages(child, false);
+          else if (child && typeof child === 'object') addStateImages(child, imageContext);
+        }
+      };
+      document.querySelectorAll('script').forEach(script => {
+        try { addStateImages(JSON.parse(script.textContent)); } catch { addStateImages(script.textContent); }
+      });
+      return values.filter(Boolean);
+    });
+    return [...new Set(candidates.filter(value => /^https?:\/\//i.test(value)))];
+  } finally {
+    await browser.close();
+  }
 }
 
 async function extractPageVideos(parsed) {
@@ -367,7 +469,7 @@ async function extractPageAudio(parsed) {
 
 app.post('/api/media', async (req, res) => {
   try {
-    const parsed = parseUrl(req.body.url);
+    const parsed = await resolveSocialShortUrl(parseUrl(req.body.url));
     const requestedMediaType = ['auto', 'all', 'image', 'video', 'audio'].includes(req.body.mediaType) ? req.body.mediaType : 'auto';
     logStage('media request', parsed);
     await rejectPrivateHost(parsed);
@@ -387,6 +489,15 @@ app.post('/api/media', async (req, res) => {
       metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     }
+    if (isTikTokPhotoPost(parsed) && ['auto', 'all', 'image'].includes(requestedMediaType)) {
+      const photoUrls = await extractRenderedPageImages(parsed).catch(() => []);
+      if (photoUrls.length) {
+        const data = webMediaData(parsed, requestedMediaType, photoUrls, [], []);
+        data.title = 'TikTok slideshow images';
+        metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+        return res.json(data);
+      }
+    }
     if (!isSocialMediaUrl(parsed)) {
       const videoUrls = ['image', 'audio'].includes(requestedMediaType) ? [] : await extractPageVideos(parsed).catch(() => []);
       const audioUrls = ['image', 'video'].includes(requestedMediaType) ? [] : await extractPageAudio(parsed).catch(() => []);
@@ -402,13 +513,21 @@ app.post('/api/media', async (req, res) => {
       const raw = await runYtDlp(extractorArgs(parsed.toString()));
       const info = JSON.parse(raw);
       if (requestedMediaType !== 'video') assertDurationAllowed(info, parsed);
-      const entries = flattenEntries(info);
+      const entries = normalizedExtractorEntries(info);
       if (requestedMediaType !== 'video') entries.forEach(entry => assertDurationAllowed(entry, parsed));
       const items = entries.length > 1 ? entries.map((entry, position) => itemFromInfo(entry, parsed.toString(), position + 1)) : [itemFromInfo(entries[0] || info, parsed.toString(), 1)];
       const data = { title: info.title || items[0].title, thumbnail: info.thumbnail || items[0].thumbnail, source: 'extractor', count: items.length, items };
       metadataCache.set(cacheKey, { data, info, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     } catch (extractorError) {
+      if (['auto', 'all', 'image'].includes(requestedMediaType) && isSocialMediaUrl(parsed)) {
+        const renderedImages = await extractRenderedPageImages(parsed).catch(() => []);
+        if (renderedImages.length) {
+          const data = webMediaData(parsed, requestedMediaType, renderedImages, [], []);
+          metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+          return res.json(data);
+        }
+      }
       if (!await isDirectMedia(parsed)) {
         if (!isSocialMediaUrl(parsed)) {
           const videoUrls = ['image', 'audio'].includes(requestedMediaType) ? [] : await extractPageVideos(parsed).catch(() => []);
@@ -465,8 +584,7 @@ app.get('/api/download', async (req, res) => {
       }
     }
     if (directMedia) {
-      const headers = { 'User-Agent': 'ClipGrab/1.0' };
-      if (referer) headers.Referer = referer.toString();
+      const headers = upstreamMediaHeaders(parsed, referer);
       const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(upstreamTimeoutMs), headers });
       if (!upstream.ok || !upstream.body) throw new Error('The media file could not be fetched.');
       const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
@@ -547,14 +665,11 @@ app.get('/api/preview', previewRateLimit, async (req, res) => {
       return res.send(cached.body);
     }
     previewCache.delete(cacheKey);
-    const headers = { 'User-Agent': 'ClipGrab/1.0', Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' };
-    if (referer) headers.Referer = referer.toString();
+    const headers = { ...upstreamMediaHeaders(parsed, referer), Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' };
     let upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers });
     let contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     if (!upstream.ok || !upstream.body || !/^image\//.test(contentType)) {
       if (upstream.body) upstream.body.cancel().catch(() => {});
-      delete headers.Referer;
-      headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36';
       upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(metadataTimeoutMs), headers });
       contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     }
@@ -582,6 +697,10 @@ app.get('/sw.js', (req, res) => res.type('application/javascript').sendFile(path
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'clipgrab.html')));
 if (require.main === module) app.listen(port, () => console.log(`ClipGrab running at http://localhost:${port}`));
 app.extractPageImages = extractPageImages;
+app.extractRenderedPageImages = extractRenderedPageImages;
 app.extractPageVideos = extractPageVideos;
 app.extractorArgs = extractorArgs;
+app.isTikTokPhotoPost = isTikTokPhotoPost;
+app.normalizedExtractorEntries = normalizedExtractorEntries;
+app.itemFromInfo = itemFromInfo;
 module.exports = app;

@@ -31,6 +31,16 @@ py -m pip install curl-cffi
 
 Restart the terminal after installation so `yt-dlp` is available on `PATH`.
 
+For public Instagram and TikTok pages that require JavaScript to reveal image galleries, install Playwright and its Chromium browser. The fallback is enabled automatically when Playwright is installed; set `CLIPGRAB_BROWSER_FALLBACK=0` to disable it:
+
+```powershell
+npm.cmd install playwright
+npx playwright install chromium
+$env:CLIPGRAB_BROWSER_FALLBACK = '0' # optional disable switch
+```
+
+For content your server account is authorized to access, export a Netscape-format cookies file and set `CLIPGRAB_COOKIES_FILE` to its path. The app never asks users for platform passwords. Private, deleted, CAPTCHA-protected, or platform-blocked content can still fail.
+
 3. Install dependencies and start the app:
 
 ```powershell
@@ -53,6 +63,12 @@ Recent links, saved URLs, result state, and hidden gallery items are stored loca
 ## API
 
 - `GET /health` returns the service health status used by Render.
+
+## Keep the Render service awake
+
+The repository includes `.github/workflows/keepalive.yml`, which requests the health endpoint every 7 minutes. This request must come from outside Render; a timer inside the Node process cannot wake an instance that Render has already suspended.
+
+To enable it, add a repository variable named `KEEPALIVE_URL` under GitHub **Settings > Secrets and variables > Actions > Variables**. Set it to the deployed origin without a trailing slash, for example `https://clipgrab.onrender.com`. The workflow can also be started manually from the Actions tab.
 
 - `POST /api/media` with `{ "url": "https://..." }` returns media metadata and download format URLs.
 - `GET /api/download?url=...&format=video` streams a video download.
