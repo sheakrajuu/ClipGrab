@@ -80,6 +80,30 @@ test('extractor arguments keep the original URL separate from cache mode', () =>
   ]);
 });
 
+test('extractor entries preserve TikTok photo sets and remove duplicate images', () => {
+  const entries = app.normalizedExtractorEntries({
+    entries: [{ id: 'photo-1', url: 'https://cdn.example/photo-1.jpg', ext: 'jpg' }],
+    image_post_info: { images: [
+      { url: 'https://cdn.example/photo-1.jpg', ext: 'jpg' },
+      { imageURL: { url_list: ['https://cdn.example/photo-2.jpg'] } }
+    ]}
+  });
+  assert.deepEqual(entries.map(entry => entry.url), [
+    'https://cdn.example/photo-1.jpg',
+    'https://cdn.example/photo-2.jpg'
+  ]);
+  assert.equal(app.itemFromInfo(entries[1], 'https://www.tiktok.com/@user/photo/1', 2).type, 'image');
+});
+
+test('TikTok photo URLs are recognized as slideshow posts', () => {
+  assert.equal(app.isTikTokPhotoPost(new URL('https://www.tiktok.com/@creator/photo/123')), true);
+  assert.equal(app.isTikTokPhotoPost(new URL('https://www.tiktok.com/@creator/video/123')), false);
+});
+
+test('TikTok image URL lists may contain extensionless signed CDN URLs', () => {
+  assert.equal(app.normalizedExtractorEntries({ imageURL: { url_list: ['https://cdn.example/obj/7abc?x=1'] } })[0].url, 'https://cdn.example/obj/7abc?x=1');
+});
+
 test('video extraction finds lazy-loaded video sources', async () => {
   const videos = await app.extractPageVideos(new URL(fixtureUrl));
   assert.deepEqual(videos, [`${new URL(fixtureUrl).origin}/media/launch.mp4`]);
