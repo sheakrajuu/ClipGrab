@@ -59,6 +59,7 @@ test('homepage and PWA assets are available', async () => {
   assert.match(pageText, /id="clear-video-cache-btn"/);
   assert.match(pageText, /id="clear-audio-cache-btn"/);
   assert.match(pageText, /id="jump-overlay"/);
+  assert.match(pageText, /data-media-type="comic"/);
   imageFixtureUrl = `http://127.0.0.1:${fixtureServer.address().port}/image-page`;
   assert.equal(manifest.status, 200);
   const manifestData = await manifest.json();
@@ -130,4 +131,16 @@ test('invalid media requests return a useful error', async () => {
   });
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /valid URL/i);
+});
+
+test('direct PDF URLs return a PDF download item', async () => {
+  const response = await fetch(`${baseUrl}/api/media`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ url: 'https://example.com/issue.pdf', mediaType: 'comic' })
+  });
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.items[0].type, 'pdf');
+  assert.match(data.items[0].downloads.pdf, /format=pdf/);
 });
