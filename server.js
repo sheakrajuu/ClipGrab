@@ -13,6 +13,7 @@ const { Readable } = require('node:stream');
 const crypto = require('node:crypto');
 const ffmpegPath = require('ffmpeg-static');
 const cheerio = require('cheerio');
+const { PDFDocument } = require('pdf-lib');
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -29,6 +30,10 @@ const webVideoLimitSeconds = 15 * 60;
 const upstreamTimeoutMs = 120000;
 const metadataTimeoutMs = 30000;
 const directTypeTimeoutMs = 8000;
+const comicPageLimit = 100;
+const comicImageLimitBytes = 8 * 1024 * 1024;
+const comicTotalLimitBytes = 40 * 1024 * 1024;
+const comicImageTimeoutMs = 15000;
 
 const pageSections = ['header', 'hero', 'web-tools', 'cross-links', 'content', 'footer'];
 
@@ -240,7 +245,7 @@ function previewUrl(sourceUrl, refererUrl) {
 function webMediaData(parsed, requestedMediaType, imageUrls = [], videoUrls = [], audioUrls = []) {
   const fileType = url => { try { return path.extname(new URL(url).pathname).replace('.', '').toUpperCase() || 'MEDIA'; } catch { return 'MEDIA'; } };
   const sourceDomain = url => { try { return new URL(url).hostname; } catch { return parsed.hostname; } };
-  const includeImages = requestedMediaType === 'auto' || requestedMediaType === 'all' || requestedMediaType === 'image';
+  const includeImages = requestedMediaType === 'auto' || requestedMediaType === 'all' || requestedMediaType === 'image' || requestedMediaType === 'comic';
   const includeVideos = requestedMediaType === 'auto' || requestedMediaType === 'all' || requestedMediaType === 'video';
   const includeAudio = requestedMediaType === 'auto' || requestedMediaType === 'all' || requestedMediaType === 'audio';
   const items = [
@@ -252,12 +257,14 @@ function webMediaData(parsed, requestedMediaType, imageUrls = [], videoUrls = []
 }
 
 async function directMediaType(parsed) {
+  if (/\.pdf(\?.*)?$/i.test(parsed.pathname)) return 'pdf';
   if (/\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) return 'video';
   if (/\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?.*)?$/i.test(parsed.pathname)) return 'audio';
   if (/\.(jpg|jpeg|png|gif|webp|avif)(\?.*)?$/i.test(parsed.pathname)) return 'image';
   try {
     const response = await fetch(parsed, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(directTypeTimeoutMs), headers: { 'User-Agent': 'ClipGrab/1.0' } });
     const contentType = response.headers.get('content-type') || '';
+    if (/^application\/pdf/i.test(contentType)) return 'pdf';
     if (/^image\//i.test(contentType)) return 'image';
     if (/^video\//i.test(contentType)) return 'video';
     if (/^audio\//i.test(contentType)) return 'audio';
@@ -470,7 +477,7 @@ async function extractPageAudio(parsed) {
 app.post('/api/media', async (req, res) => {
   try {
     const parsed = await resolveSocialShortUrl(parseUrl(req.body.url));
-    const requestedMediaType = ['auto', 'all', 'image', 'video', 'audio'].includes(req.body.mediaType) ? req.body.mediaType : 'auto';
+    const requestedMediaType = ['auto', 'all', 'image', 'video', 'audio', 'comic'].includes(req.body.mediaType) ? req.body.mediaType : 'auto';
     logStage('media request', parsed);
     await rejectPrivateHost(parsed);
     const cacheKey = `${requestedMediaType}:${parsed.toString()}`;
@@ -478,8 +485,13 @@ app.post('/api/media', async (req, res) => {
     if (cached && cached.expiresAt > Date.now()) return res.json(cached.data);
     metadataCache.delete(cacheKey);
     const directType = await directMediaType(parsed);
-    if (directType && !['auto', 'all', directType].includes(requestedMediaType)) {
+    if (directType && !['auto', 'all', directType, ...(directType === 'pdf' ? ['comic'] : [])].includes(requestedMediaType)) {
       throw new Error(`This URL contains a ${directType}; choose ${directType} mode or Auto detect.`);
+    }
+    if (directType === 'pdf') {
+      const data = { title: path.basename(parsed.pathname) || 'Comic PDF', source: 'direct', count: 1, scan: { host: parsed.hostname, mode: requestedMediaType, images: 0, videos: 0, audio: 0, pdfs: 1 }, items: [{ index: 1, title: path.basename(parsed.pathname) || 'Comic PDF', thumbnail: '', type: 'pdf', duration: null, maxDuration: null, resolutions: [], downloads: { pdf: downloadUrl(parsed.toString(), 'pdf', 1) } }] };
+      metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
+      return res.json(data);
     }
     if (directType === 'image' || directType === 'video' || directType === 'audio') {
       const isImage = directType === 'image';
@@ -564,17 +576,70 @@ app.post('/api/media', async (req, res) => {
   }
 });
 
+async function fetchComicImage(url, referer) {
+  const parsed = parseUrl(url);
+  await rejectPrivateHost(parsed);
+  const response = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(comicImageTimeoutMs), headers: upstreamMediaHeaders(parsed, referer) });
+  if (!response.ok || !response.body) throw new Error('A comic page could not be fetched.');
+  const finalUrl = new URL(response.url || parsed.toString());
+  await rejectPrivateHost(finalUrl);
+  const contentType = (response.headers.get('content-type') || '').split(';')[0].toLowerCase();
+  if (!['image/jpeg', 'image/png'].includes(contentType)) throw new Error('Comic pages must be JPG or PNG images.');
+  const declaredLength = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declaredLength) && declaredLength > comicImageLimitBytes) throw new Error('A comic page is larger than the 8 MB limit.');
+  const body = Buffer.from(await response.arrayBuffer());
+  if (!body.length || body.length > comicImageLimitBytes) throw new Error('A comic page is larger than the 8 MB limit.');
+  return { body, contentType };
+}
+
+async function createComicPdf(pageUrls, referer) {
+  if (!pageUrls.length) throw new Error('No JPG or PNG comic pages were found.');
+  if (pageUrls.length > comicPageLimit) throw new Error(`Comics are limited to ${comicPageLimit} pages.`);
+  const pdf = await PDFDocument.create();
+  let totalBytes = 0;
+  for (const url of pageUrls) {
+    const image = await fetchComicImage(url, referer);
+    totalBytes += image.body.length;
+    if (totalBytes > comicTotalLimitBytes) throw new Error('This comic is larger than the 40 MB total limit.');
+    const embedded = image.contentType === 'image/png' ? await pdf.embedPng(image.body) : await pdf.embedJpg(image.body);
+    const dimensions = embedded.scale(1);
+    const scale = Math.min(1, 1440 / Math.max(dimensions.width, dimensions.height));
+    const page = pdf.addPage([dimensions.width * scale, dimensions.height * scale]);
+    page.drawImage(embedded, { x: 0, y: 0, width: dimensions.width * scale, height: dimensions.height * scale });
+  }
+  pdf.setTitle('Comic downloaded with ClipGrab');
+  return pdf.save();
+}
+
+app.post('/api/comic', async (req, res) => {
+  try {
+    const parsed = parseUrl(req.body.url);
+    await rejectPrivateHost(parsed);
+    const directType = await directMediaType(parsed);
+    if (directType === 'pdf') throw new Error('This URL is already a PDF. Download it directly from the result.');
+    const pageUrls = await extractPageImages(parsed);
+    const pdf = await createComicPdf(pageUrls, parsed);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadFileName(req.body.name, 'clipgrab-comic', 'pdf')}"`);
+    res.setHeader('Content-Length', pdf.length);
+    res.send(Buffer.from(pdf));
+  } catch (error) {
+    console.warn(`[clipgrab] comic failed [${req.requestId}] - ${error.message}`);
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.get('/api/download', async (req, res) => {
   try {
     const parsed = parseUrl(req.query.url);
     const referer = req.query.referer ? parseUrl(req.query.referer) : null;
     await rejectPrivateHost(parsed);
     if (referer) await rejectPrivateHost(referer);
-    const format = ['audio', 'image', 'video'].includes(req.query.format) ? req.query.format : 'video';
+    const format = ['audio', 'image', 'video', 'pdf'].includes(req.query.format) ? req.query.format : 'video';
     const isPreview = req.query.preview === '1';
     logStage('download request', parsed, format);
     const sourceExtractorOptions = extractorOptions(parsed.toString());
-    const directMedia = format === 'image' ? true : await isDirectMedia(parsed);
+    const directMedia = format === 'image' || format === 'pdf' ? (await directMediaType(parsed)) === format : await isDirectMedia(parsed);
     if (directMedia && format === 'video' && /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) {
       try {
         const metadata = JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', '--no-playlist', ...sourceExtractorOptions, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
@@ -588,9 +653,9 @@ app.get('/api/download', async (req, res) => {
       const upstream = await fetch(parsed, { redirect: 'follow', signal: AbortSignal.timeout(upstreamTimeoutMs), headers });
       if (!upstream.ok || !upstream.body) throw new Error('The media file could not be fetched.');
       const contentType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-      const expectedType = format === 'image' ? /^image\// : format === 'audio' ? /^audio\// : /^video\//;
+      const expectedType = format === 'image' ? /^image\// : format === 'audio' ? /^audio\// : format === 'pdf' ? /^application\/pdf$/ : /^video\//;
       if (!expectedType.test(contentType)) throw new Error('The source did not return a valid media file.');
-      const extension = contentType.startsWith('image/') ? contentType.split('/')[1].split(';')[0].replace('jpeg', 'jpg') : path.extname(parsed.pathname).slice(1).toLowerCase() || (contentType.startsWith('audio/') ? 'm4a' : 'mp4');
+      const extension = format === 'pdf' ? 'pdf' : contentType.startsWith('image/') ? contentType.split('/')[1].split(';')[0].replace('jpeg', 'jpg') : path.extname(parsed.pathname).slice(1).toLowerCase() || (contentType.startsWith('audio/') ? 'm4a' : 'mp4');
       res.setHeader('Content-Disposition', `attachment; filename="${downloadFileName(req.query.name, 'clipgrab-media', extension)}"`);
       res.setHeader('Content-Type', contentType);
       const contentLength = upstream.headers.get('content-length');

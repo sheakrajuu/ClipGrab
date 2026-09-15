@@ -233,7 +233,7 @@
   .saved-filter-picker{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
   .saved-filter-option{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:9px 12px;font:700 12px Inter,sans-serif;cursor:pointer;}
   .saved-filter-option.active{background:var(--accent);border-color:var(--accent);color:var(--bg);}
-  .media-type-picker{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:14px;}
+  .media-type-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px;margin-top:14px;}
   .media-type-option{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:10px 12px;font:700 12px Inter,sans-serif;cursor:pointer;}
   .media-type-option.active{background:var(--accent);border-color:var(--accent);color:var(--bg);}
   #media-type-hint{grid-column:1 / -1;color:#8B8FA3;font-size:11px;margin:2px 0 0;}
@@ -349,7 +349,7 @@
     .batch-name-tools{align-items:stretch;flex-direction:column;}
     .batch-name{width:100%;}
     .batch-name-save{width:100%;}
-    .media-type-picker{grid-template-columns:repeat(2,1fr);gap:5px;}
+    .media-type-picker{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;}
     #media-type-hint{line-height:1.35;}
   }
   .web-download{max-width:1080px;margin:56px auto 0;padding:0 24px;position:relative;z-index:3;}.web-download-inner{background:#1c2421;color:#fff;border-radius:var(--radius);padding:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}.web-download h2{margin:0 0 6px;font-size:24px}.web-download p{color:#b9c1b8;margin:0;font-size:14px;max-width:570px}.web-cta{display:inline-block;background:var(--accent);color:var(--bg);border-radius:7px;padding:11px 15px;font:700 13px Inter,sans-serif;white-space:nowrap}
@@ -524,6 +524,13 @@
     padding:16px 0;
   }
   .faq-q{
+    width:100%;
+    border:0;
+    background:transparent;
+    color:inherit;
+    font-family:inherit;
+    padding:0 0 2px;
+    text-align:left;
     font-weight:600;
     font-size:15px;
     cursor:pointer;
@@ -538,6 +545,7 @@
     font-weight:400;
     transition:transform .15s ease;
   }
+  .faq-q:hover{color:var(--accent-dark);}
   .faq-item.open .faq-q::after{transform:rotate(45deg);}
   .faq-a{
     display:none;
@@ -547,6 +555,7 @@
     max-width:70ch;
   }
   .faq-item.open .faq-a{display:block;}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto !important;animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}}
 
   /* ---------- Footer ---------- */
   footer{
@@ -666,8 +675,8 @@
       placeholder: "Paste a public page or direct media URL",
       steps: [
         "Copy the address of a public page or direct media file.",
-        "Choose Auto detect, All media, Images, Videos, or Audio in the Web scanner.",
-        "Review the scan, filter the results, then download or keep media offline."
+        "Choose Auto detect, All media, Images, Videos, Audio, or Comic PDF in the Web scanner.",
+        "Review the scan, create a PDF from ordered comic pages, or download the available media."
       ]
     }
   };
@@ -835,7 +844,7 @@
 
   function renderHistory() {
     const entries = readHistory();
-    historyPanel.hidden = true;
+    historyPanel.hidden = entries.length === 0;
     historyList.innerHTML = entries.map((entry, index) => `<button class="history-item" type="button" data-history-index="${index}" title="${escapeHtml(entry.url)}">${escapeHtml(entry.name || entry.platform || 'Recent link')}</button>`).join('');
     if (settingsHistoryList) {
       settingsHistoryList.innerHTML = entries.length
@@ -916,13 +925,13 @@
   }
 
   function setWebMediaType(type) {
-    selectedWebMediaType = ['auto', 'all', 'image', 'video', 'audio'].includes(type) ? type : 'auto';
+    selectedWebMediaType = ['auto', 'all', 'image', 'video', 'audio', 'comic'].includes(type) ? type : 'auto';
     mediaTypeOptions.forEach(option => {
       const active = option.dataset.mediaType === selectedWebMediaType;
       option.classList.toggle('active', active);
       option.setAttribute('aria-pressed', String(active));
     });
-    mediaTypeHint.textContent = ({ auto: 'Scan a public page and ClipGrab will find images, videos, and audio it can access.', all: 'Scan every supported media type on the page.', image: 'Show images only and skip video and audio discovery.', video: 'Show videos only and skip image and audio discovery.', audio: 'Show audio sources only.' })[selectedWebMediaType];
+    mediaTypeHint.textContent = ({ auto: 'Scan a public page and ClipGrab will find images, videos, and audio it can access.', all: 'Scan every supported media type on the page.', image: 'Show images only and skip video and audio discovery.', video: 'Show videos only and skip image and audio discovery.', audio: 'Show audio sources only.', comic: 'Find ordered JPG and PNG pages and assemble them into one PDF.' })[selectedWebMediaType];
     renderSavedUrls();
   }
 
@@ -1118,6 +1127,34 @@
     }
   }
 
+  async function downloadComicPdf(button) {
+    const sourceUrl = urlInput.value.trim();
+    if (!sourceUrl) return;
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Creating PDF...';
+    try {
+      const response = await fetch('/api/comic', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: sourceUrl, name: resultTitle.textContent }) });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'The comic PDF could not be created.');
+      }
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${safeFileName(resultTitle.textContent, 'clipgrab-comic')}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      setResultStatus('Comic PDF downloaded.', 'success');
+      button.textContent = 'PDF downloaded';
+    } catch (error) {
+      setResultStatus(error.message || 'The comic PDF could not be created.', 'error');
+      button.textContent = originalLabel;
+    } finally {
+      setTimeout(() => { button.disabled = false; if (button.textContent === 'PDF downloaded') button.textContent = originalLabel; }, 1500);
+    }
+  }
+
   async function keepMediaOffline(target, button) {
     const settings = privacySettings();
     if (settings.privateMode || !settings.offline) {
@@ -1302,11 +1339,16 @@
     const downloadAllImages = galleryMode && visibleItems.length > 1
       ? '<button class="load-more-media" type="button" data-download-all-images="true">Download all images</button>'
       : '';
-    const galleryActions = previousWindow || nextAction || fetchAgain || downloadAllImages
-      ? `<div class="gallery-actions">${downloadAllImages}${previousWindow}${nextAction}${fetchAgain}</div>`
+    const createComic = selectedPlatform === 'Web' && selectedWebMediaType === 'comic' && galleryMode && visibleItems.length
+      ? '<button class="load-more-media" type="button" data-create-comic="true">Create PDF from these pages</button>'
+      : '';
+    const galleryActions = previousWindow || nextAction || fetchAgain || downloadAllImages || createComic
+      ? `<div class="gallery-actions">${createComic}${downloadAllImages}${previousWindow}${nextAction}${fetchAgain}</div>`
       : '';
     mediaGrid.innerHTML = items.map(item => {
-      const downloadType = item.type === 'image' ? 'image' : item.type === 'audio' ? 'audio' : 'video';
+      const downloadType = item.type === 'image' ? 'image' : item.type === 'audio' ? 'audio' : item.type === 'pdf' ? 'pdf' : 'video';
+      const downloadLabel = downloadType === 'pdf' ? 'Download PDF' : `Download ${downloadType}`;
+      const isPdf = item.type === 'pdf';
       const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
       const downloadTarget = item.downloads[downloadType] || '';
       const snapVidFallback = item.type === 'image' && !downloadTarget && failedUrlPlatform() === 'Instagram'
@@ -1318,14 +1360,16 @@
           ? (item.thumbnail ? `<img class="image-preview" src="${escapeHtml(item.thumbnail)}"${item.sourceUrl ? ` data-source-src="${escapeHtml(item.sourceUrl)}"` : ''} data-gallery-src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.title || 'Image')}">` : '<div class="result-thumb"></div>')
         : item.type === 'audio'
           ? `<audio controls preload="metadata" src="${escapeHtml(item.downloads.audio || '')}"></audio>`
+          : isPdf
+            ? '<div class="result-thumb" aria-label="PDF document"></div>'
           : (tooLong ? '<div class="result-thumb"></div>' : `<video controls preload="metadata"${item.thumbnail ? ` poster="${escapeHtml(item.thumbnail)}"` : ''} src="${escapeHtml(item.downloads.video)}&preview=1"></video>`);
       const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
       const mediaMeta = [item.fileType || item.type?.toUpperCase(), item.sourceDomain].filter(Boolean).join(' · ');
-      const offlineTarget = item.type === 'image' ? item.thumbnail : item.downloads?.[item.type === 'audio' ? 'audio' : 'video'] ? `${item.downloads[item.type === 'audio' ? 'audio' : 'video']}&preview=1` : '';
+      const offlineTarget = item.type === 'image' ? item.thumbnail : item.type === 'video' && item.downloads?.video ? `${item.downloads.video}&preview=1` : item.type === 'audio' && item.downloads?.audio ? `${item.downloads.audio}&preview=1` : '';
       const offlineButton = offlineTarget ? `<button class="external-download offline-save" type="button" data-offline-url="${escapeHtml(offlineTarget)}" data-offline-type="${downloadType}">Keep offline</button>` : '';
       const galleryTile = galleryMode && item.type === 'image' ? ' gallery-tile' : '';
       const hideButton = galleryTile ? `<button class="hide-image" type="button" data-hide-id="${escapeHtml(item.id)}" aria-label="Hide this image">Hide</button>` : '';
-      return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div><div class="media-meta">${escapeHtml(mediaMeta)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : `<input class="file-name" type="text" placeholder="Optional file name" aria-label="Optional file name">${formats}${resolutions}<div class="progress-track" aria-hidden="true"><div class="progress-bar"></div></div>`}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : `Download ${downloadType}`}</button>${offlineButton}${snapVidFallback}</div></div></article>`;
+      return `<article class="media-item${galleryTile}" data-media-id="${escapeHtml(item.id)}">${hideButton}${image}<div class="media-item-body"><div class="media-item-title">${escapeHtml(item.title)}</div><div class="media-meta">${escapeHtml(mediaMeta)}</div>${warning}${!downloadTarget && !tooLong ? `<div class="result-sub">Preview only; the source did not expose the full image.${snapVidFallback ? ' Your link will be copied before SnapVid opens.' : ''}</div>` : ''}${tooLong ? '' : `<input class="file-name" type="text" placeholder="Optional file name" aria-label="Optional file name">${formats}${resolutions}<div class="progress-track" aria-hidden="true"><div class="progress-bar"></div></div>`}<div class="result-actions"><button class="dl-btn primary media-download" type="button" data-type="${downloadType}" data-url="${escapeHtml(downloadTarget)}" ${tooLong || !downloadTarget ? 'disabled' : ''}>${tooLong || !downloadTarget ? 'Unavailable' : downloadLabel}</button>${offlineButton}${snapVidFallback}</div></div></article>`;
     }).join('') + galleryActions;
   }
 
@@ -1466,7 +1510,7 @@
     if (!data.items.length) throw new Error('No downloadable media was found at this URL.');
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
     const scan = data.scan;
-    const summary = scan ? `Found ${scan.images} image${scan.images === 1 ? '' : 's'}, ${scan.videos} video${scan.videos === 1 ? '' : 's'}, and ${scan.audio} audio source${scan.audio === 1 ? '' : 's'}.` : `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found.`;
+    const summary = scan?.pdfs ? `${scan.pdfs} PDF${scan.pdfs === 1 ? '' : 's'} ready to download.` : scan ? `Found ${scan.images} image${scan.images === 1 ? '' : 's'}, ${scan.videos} video${scan.videos === 1 ? '' : 's'}, and ${scan.audio} audio source${scan.audio === 1 ? '' : 's'}.` : `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found.`;
     resultSub.textContent = `${summary} Choose a format where available.`;
     setResultStatus('Media ready.', 'success');
     copyResultButton.hidden = false;
@@ -1588,6 +1632,10 @@
     }
     const loadMoreButton = e.target.closest('.load-more-media');
     if (loadMoreButton) {
+      if (loadMoreButton.dataset.createComic === 'true') {
+        downloadComicPdf(loadMoreButton);
+        return;
+      }
       if (loadMoreButton.dataset.downloadAllImages === 'true') {
         downloadAllImages(loadMoreButton);
         return;
@@ -1670,10 +1718,10 @@
     const item = button.closest('.media-item');
     const selector = item?.querySelector('.resolution');
     const formatOption = item?.querySelector('.format-option.active');
-    const format = formatOption?.dataset.format || 'video';
+    const format = formatOption?.dataset.format || (button.dataset.type === 'pdf' ? 'pdf' : 'video');
     const target = (selector && selector.value ? selector.dataset.download + '&height=' + encodeURIComponent(selector.value) : button.dataset.url) + (format === 'audio' ? '&format=audio' : '');
     const nameInput = button.closest('.media-item')?.querySelector('.file-name');
-    const extension = format === 'audio' ? 'mp3' : button.dataset.type === 'image' ? 'jpg' : 'mp4';
+    const extension = format === 'pdf' ? 'pdf' : format === 'audio' ? 'mp3' : button.dataset.type === 'image' ? 'jpg' : 'mp4';
     downloadFile(target, button, `${safeFileName(nameInput?.value, 'clipgrab-media')}.${extension}`);
   });
   mediaGrid.addEventListener('error', event => {
@@ -1837,6 +1885,8 @@
       document.body.classList.remove('viewer-open');
       restoreWindowScroll(webToolsScrollY);
     }
+    if (privacyPreviousFocus && document.contains(privacyPreviousFocus)) privacyPreviousFocus.focus();
+    privacyPreviousFocus = null;
   }
 
   function closeSession() {
@@ -2003,6 +2053,7 @@
     if (event.key === 'Escape') {
       if (videoViewer.classList.contains('open')) closeVideoViewer();
       else if (galleryViewer.classList.contains('open')) closeGallery();
+      else if (webToolsModal.classList.contains('open')) closeWebTools();
     }
     if (galleryViewer.classList.contains('open') && event.key === 'ArrowLeft') galleryPrevious.click();
     if (galleryViewer.classList.contains('open') && event.key === 'ArrowRight') galleryNext.click();
@@ -2047,10 +2098,17 @@
 
   // FAQ accordion
   document.querySelectorAll('.faq-item').forEach(item => {
-    item.querySelector('.faq-q').addEventListener('click', () => {
+    const question = item.querySelector('.faq-q');
+    question.addEventListener('click', () => {
       const isOpen = item.classList.contains('open');
-      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
-      if (!isOpen) item.classList.add('open');
+      document.querySelectorAll('.faq-item').forEach(other => {
+        other.classList.remove('open');
+        other.querySelector('.faq-q')?.setAttribute('aria-expanded', 'false');
+      });
+      if (!isOpen) {
+        item.classList.add('open');
+        question.setAttribute('aria-expanded', 'true');
+      }
     });
   });
 </script>

@@ -72,3 +72,4 @@ To enable it, add a repository variable named `KEEPALIVE_URL` under GitHub **Set
 
 - `POST /api/media` with `{ "url": "https://..." }` returns media metadata and download format URLs.
 - `GET /api/download?url=...&format=video` streams a video download.
+- Web Scanner Comic PDF mode accepts public JPG/PNG page images and creates a temporary PDF download, limited to 100 pages and 40 MB of source images. Existing public PDF URLs are returned as direct PDF downloads.
