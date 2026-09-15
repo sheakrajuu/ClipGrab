@@ -45,24 +45,24 @@
     <h2>FAQ</h2>
     <div id="faq-list">
       <div class="faq-item open">
-        <div class="faq-q">Is it free to use?</div>
-        <div class="faq-a">Yes. ClipGrab works in your browser for public media from supported social platforms and other public websites. No account is required.</div>
+        <button class="faq-q" type="button" aria-expanded="true" aria-controls="faq-free">Is it free to use?</button>
+        <div class="faq-a" id="faq-free">Yes. ClipGrab works in your browser for public media from supported social platforms and other public websites. No account is required.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q">Why did a download fail?</div>
-        <div class="faq-a">Usually one of: the video is private, it's restricted in your country, it's been deleted, or the source platform is briefly blocking requests. Try again in a few minutes.</div>
+        <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-fail">Why did a download fail?</button>
+        <div class="faq-a" id="faq-fail">Usually one of: the video is private, it's restricted in your country, it's been deleted, or the source platform is briefly blocking requests. Try again in a few minutes.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q">How does the Web scanner work?</div>
-        <div class="faq-a">Use Auto detect to find images, videos, and audio, or choose a specific type when you only want one kind of result. Preview the media before saving it.</div>
+        <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-scanner">How does the Web scanner work?</button>
+        <div class="faq-a" id="faq-scanner">Use Auto detect to find images, videos, and audio, or choose a specific type when you only want one kind of result. Preview the media before saving it.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q">Do you keep a copy of my videos?</div>
-        <div class="faq-a">No. Nothing is stored on our servers — files are pulled from the original platform each time.</div>
+        <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-storage">Do you keep a copy of my videos?</button>
+        <div class="faq-a" id="faq-storage">No. Nothing is stored on our servers — files are pulled from the original platform each time.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q">Is there an Android app?</div>
-        <div class="faq-a">ClipGrab works in your browser on desktop and mobile. Supported browsers may offer an install option.</div>
+        <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-app">Is there an Android app?</button>
+        <div class="faq-a" id="faq-app">ClipGrab works in your browser on desktop and mobile. Supported browsers may offer an install option.</div>
       </div>
     </div>
   </section>
