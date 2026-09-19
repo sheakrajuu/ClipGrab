@@ -1437,7 +1437,7 @@
     closeSessionButton.hidden = false;
     resultTitle.textContent = 'Finding media...';
     resultSub.textContent = 'Checking the source and available formats.';
-    setResultStatus('Contacting the source...', 'loading');
+    setResultStatus('Processing your URL...', 'loading');
     retryButton.hidden = true;
     copyResultButton.hidden = true;
     fetchSubmitButton.disabled = true;
@@ -1529,9 +1529,11 @@
       fetchSubmitButton.disabled = false;
       resultCard.classList.add('show');
       resultTitle.textContent = 'Could not find that media';
+      setResultStatus('Processing stopped.', 'error');
       showErrorWithFallback(error.message || 'Check the URL and try again.', failedUrlPlatform());
       fetchHint.textContent = error.message || 'Could not find that media.';
-      mediaGrid.innerHTML = '';
+      mediaGrid.classList.remove('loading', 'gallery-mode');
+      mediaGrid.innerHTML = '<div class="empty-state">No media could be loaded from this URL.</div>';
     }
   });
 

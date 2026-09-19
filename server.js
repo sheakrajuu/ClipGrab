@@ -273,8 +273,12 @@ async function isDirectMedia(parsed) {
 
 function itemFromInfo(info, sourceUrl, index) {
   const heights = [...new Set((info.formats || []).map(format => format.height).filter(height => Number.isInteger(height)))].sort((a, b) => b - a);
-  const imageUrl = [info.url, info.image, info.original_url].find(value => /^(https?:)?\/\//i.test(String(value || '')) && /\.(?:jpg|jpeg|png|gif|webp|avif)(?:[?#]|$)/i.test(String(value)));
-  const image = /^(jpg|jpeg|png|gif|webp|avif)$/i.test(info.ext || '') || Boolean(imageUrl);
+  const image = /^(jpg|jpeg|png|gif|webp|avif)$/i.test(info.ext || '');
+  const imageUrl = [info.url, info.image, info.original_url].find(value => {
+    if (!/^(https?:)?\/\//i.test(String(value || ''))) return false;
+    return image || /\.(?:jpg|jpeg|png|gif|webp|avif)(?:[?#]|$)/i.test(String(value));
+  });
+  const isImage = image || Boolean(imageUrl);
   const originalImageUrl = image && imageUrl ? imageUrl : sourceUrl;
   const downloads = {
     video: downloadUrl(sourceUrl, 'video', index),
@@ -284,7 +288,7 @@ function itemFromInfo(info, sourceUrl, index) {
     index,
     title: info.title || `Media ${index}`,
     thumbnail: info.thumbnail ? previewUrl(info.thumbnail, sourceUrl) : '',
-    type: image ? 'image' : 'video',
+    type: isImage ? 'image' : 'video',
     duration: Number.isFinite(Number(info.duration)) ? Number(info.duration) : null,
     maxDuration: durationLimitForUrl(new URL(sourceUrl)),
     resolutions: heights.length ? heights : [],
