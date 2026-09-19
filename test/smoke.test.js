@@ -103,6 +103,14 @@ test('TikTok image URL lists may contain extensionless signed CDN URLs', () => {
   assert.equal(app.normalizedExtractorEntries({ imageURL: { url_list: ['https://cdn.example/obj/7abc?x=1'] } })[0].url, 'https://cdn.example/obj/7abc?x=1');
 });
 
+test('extractor image entries use extensionless signed image URLs for downloads', () => {
+  const item = app.itemFromInfo({ ext: 'jpg', url: 'https://cdn.example/media/7abc?token=1' }, 'https://www.instagram.com/p/abc/', 1);
+  assert.equal(item.type, 'image');
+  const download = new URL(`https://clipgrab.test${item.downloads.image}`);
+  assert.equal(download.searchParams.get('url'), 'https://cdn.example/media/7abc?token=1');
+  assert.equal(download.searchParams.get('referer'), 'https://www.instagram.com/p/abc/');
+});
+
 test('video extraction finds lazy-loaded video sources', async () => {
   const videos = await app.extractPageVideos(new URL(fixtureUrl));
   assert.deepEqual(videos, [`${new URL(fixtureUrl).origin}/media/launch.mp4`]);
