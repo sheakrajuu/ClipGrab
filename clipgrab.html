@@ -190,15 +190,11 @@
   .batch-toggle:hover{border-color:var(--accent);color:var(--accent);}
   .batch-header{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#fff;font-size:13px;font-weight:600;margin-bottom:8px;}
   .batch-header span{color:#8B8FA3;font-size:11px;font-weight:400;}
-  .batch-name-tools{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
-  .batch-name{width:170px;min-width:0;border:1px solid rgba(255,255,255,.14);border-radius:7px;background:rgba(255,255,255,.07);color:#fff;padding:6px 8px;font:600 12px Inter,sans-serif;outline:none;}
+  .batch-name-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;margin-bottom:8px;}
+  .batch-name{width:100%;min-width:0;border:1px solid rgba(255,255,255,.14);border-radius:7px;background:rgba(255,255,255,.07);color:#fff;padding:8px 10px;font:600 12px Inter,sans-serif;outline:none;}
   .batch-name:focus{border-color:var(--accent);}
   .batch-name-save{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:6px 8px;font:600 11px Inter,sans-serif;cursor:pointer;white-space:nowrap;}
   .batch-name-save:hover{border-color:var(--accent);color:var(--accent);}
-  .batch-form{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:stretch;}
-  .batch-form textarea{width:100%;min-width:0;min-height:68px;resize:vertical;scrollbar-width:none;border:1px solid rgba(255,255,255,.14);border-radius:7px;background:rgba(255,255,255,.07);color:#fff;padding:9px 10px;font:12px/1.45 Inter,sans-serif;outline:none;}
-  .batch-form textarea::-webkit-scrollbar{width:0;height:0;display:none;background:transparent;}
-  .batch-form textarea:focus{border-color:var(--accent);}
   .batch-btn{border:0;border-radius:7px;background:var(--accent);color:var(--bg);padding:10px 12px;font:700 12px Inter,sans-serif;cursor:pointer;white-space:nowrap;}
   .batch-btn:hover{background:var(--accent-dark);}
   .batch-status{color:#8B8FA3;font-size:11px;margin:8px 0 0;}
@@ -231,8 +227,6 @@
   .web-settings-section .saved-library-section{margin-top:20px;}
   .web-settings-section .saved-url-list{max-height:none;overflow:visible;}
   .saved-filter-picker{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
-  .saved-filter-option{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:9px 12px;font:700 12px Inter,sans-serif;cursor:pointer;}
-  .saved-filter-option.active{background:var(--accent);border-color:var(--accent);color:var(--bg);}
   .media-type-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px;margin-top:14px;}
   .media-type-option{border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:#fff;padding:10px 12px;font:700 12px Inter,sans-serif;cursor:pointer;}
   .media-type-option.active{background:var(--accent);border-color:var(--accent);color:var(--bg);}
@@ -342,8 +336,6 @@
     .web-settings-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-right:0;border-bottom:1px solid rgba(255,255,255,.12);padding:0 0 12px;margin-bottom:22px;}
     .web-settings-nav-item{padding:10px 7px;font-size:11px;line-height:1.25;}
     .web-settings-section h3{font-size:21px;}
-    .batch-form{grid-template-columns:1fr;}
-    .batch-form .batch-btn,.batch-form .save-url-btn{width:100%;}
     .batch-header{align-items:flex-start;flex-direction:column;gap:3px;}
     .batch-header span{line-height:1.35;}
     .batch-name-tools{align-items:stretch;flex-direction:column;}
@@ -576,8 +568,6 @@
   .footer-links a:hover{color:#fff;}
 
   @media (max-width:720px){
-    .batch-form{grid-template-columns:1fr;}
-    .batch-form button{width:100%;}
     .batch-name-tools{width:100%;}
     .batch-name{flex:1;width:auto;}
     .hero{padding-left:16px;padding-right:16px;}
@@ -596,7 +586,7 @@
     .media-download{width:100%;}
     .file-name{font-size:13px;}
     .saved-url-form{flex-direction:column;}
-    .saved-url-form input,.save-url-btn{width:100%;}
+    .saved-url-form input,.saved-url-form .save-url-btn{width:100%;}
     .gallery-viewer{padding:70px 12px 24px;}
     .gallery-nav{width:38px;height:38px;}.gallery-prev{left:8px;}.gallery-next{right:8px;}
     .gallery-close{top:10px;right:10px;width:38px;height:38px;font-size:23px;}
@@ -675,8 +665,8 @@
       placeholder: "Paste a public page or direct media URL",
       steps: [
         "Copy the address of a public page or direct media file.",
-        "Choose Auto detect, All media, Images, Videos, Audio, or Comic PDF in the Web scanner.",
-        "Review the scan, create a PDF from ordered comic pages, or download the available media."
+        "ClipGrab detects the available media automatically.",
+        "Review the result and download the media you need."
       ]
     }
   };
@@ -701,17 +691,12 @@
   const saveCurrentUrlButton = document.getElementById('save-current-url-btn');
   const savedUrlList = document.getElementById('saved-url-list');
   const savedBatchList = document.getElementById('saved-batch-list');
-  const batchSection = document.getElementById('batch-section');
-  const batchToggle = document.getElementById('batch-toggle');
-  const batchNameInput = document.getElementById('batch-name');
   const mediaTypeOptions = document.querySelectorAll('.media-type-option');
-  const savedFilterOptions = document.querySelectorAll('.saved-filter-option');
   const settingsNavItems = document.querySelectorAll('.web-settings-nav-item');
   const settingsSections = document.querySelectorAll('[data-settings-panel]');
   const settingsLayout = document.querySelector('.web-settings-layout');
   const settingsBack = document.getElementById('web-settings-back');
   const settingsHistoryList = document.getElementById('settings-history-list');
-  const settingsHistoryClear = document.getElementById('history-clear-settings');
   const mediaTypeHint = document.getElementById('media-type-hint');
   const unhideImagesButton = document.getElementById('unhide-images-btn');
   const settingsButton = document.getElementById('settings-btn');
@@ -846,11 +831,9 @@
     const entries = readHistory();
     historyPanel.hidden = entries.length === 0;
     historyList.innerHTML = entries.map((entry, index) => `<button class="history-item" type="button" data-history-index="${index}" title="${escapeHtml(entry.url)}">${escapeHtml(entry.name || entry.platform || 'Recent link')}</button>`).join('');
-    if (settingsHistoryList) {
-      settingsHistoryList.innerHTML = entries.length
-        ? entries.map((entry, index) => `<button class="settings-history-item" type="button" data-settings-history-index="${index}" title="${escapeHtml(entry.url)}"><span class="settings-history-url">${escapeHtml(entry.url)}</span><span class="settings-history-platform">${escapeHtml(entry.platform || 'Web')}</span></button>`).join('')
-        : '<div class="batch-status">No recent history yet.</div>';
-    }
+    if (settingsHistoryList) settingsHistoryList.innerHTML = entries.length
+      ? entries.map((entry, index) => `<button class="settings-history-item" type="button" data-settings-history-index="${index}" title="${escapeHtml(entry.url)}"><span class="settings-history-url">${escapeHtml(entry.url)}</span><span class="settings-history-platform">${escapeHtml(entry.platform || 'Web')}</span></button>`).join('')
+      : '<div class="settings-history-empty">No recent history yet.</div>';
   }
 
   function recordHistory(url, platform, name = '') {
@@ -902,8 +885,8 @@
       if (!matchesFilter(entry)) return '';
       return `<div class="saved-url-item"><button class="saved-url-load" type="button" data-url="${escapeHtml(value)}" data-batch="${batch}" data-media-type="${type}" title="Open ${escapeHtml(name)}">${escapeHtml(name)}<span>${escapeHtml(batch ? `${entry.urls.length} URLs` : entry.url)} · ${type}s</span></button><div class="saved-url-edit-actions"><button class="saved-url-edit" type="button" data-offline-index="${index}" aria-label="Cache ${escapeHtml(name)} for offline viewing">Cache offline</button><button class="saved-url-edit" type="button" data-edit-index="${index}" data-edit-batch="${batch}">Edit</button><button class="saved-url-remove" type="button" data-index="${index}" aria-label="Remove ${batch ? 'saved batch' : 'saved link'}">&times;</button></div></div>`;
     };
-    savedUrlList.innerHTML = entries.map((entry, index) => Array.isArray(entry.urls) ? '' : renderEntry(entry, index, false)).join('') || '<div class="batch-status">No saved links for this filter.</div>';
-    savedBatchList.innerHTML = entries.map((entry, index) => Array.isArray(entry.urls) ? renderEntry(entry, index, true) : '').join('') || '<div class="batch-status">No saved batches for this filter.</div>';
+    savedUrlList.innerHTML = entries.map((entry, index) => Array.isArray(entry.urls) ? '' : renderEntry(entry, index, false)).join('') || '<div class="settings-history-empty">No saved links yet.</div>';
+    savedBatchList.innerHTML = entries.map((entry, index) => Array.isArray(entry.urls) ? renderEntry(entry, index, true) : '').join('') || '<div class="settings-history-empty">No saved batches yet.</div>';
   }
 
   function setActiveTab(platform) {
@@ -925,23 +908,18 @@
   }
 
   function setWebMediaType(type) {
-    selectedWebMediaType = ['auto', 'all', 'image', 'video', 'audio', 'comic'].includes(type) ? type : 'auto';
+    selectedWebMediaType = 'auto';
     mediaTypeOptions.forEach(option => {
       const active = option.dataset.mediaType === selectedWebMediaType;
       option.classList.toggle('active', active);
       option.setAttribute('aria-pressed', String(active));
     });
-    mediaTypeHint.textContent = ({ auto: 'Scan a public page and ClipGrab will find images, videos, and audio it can access.', all: 'Scan every supported media type on the page.', image: 'Show images only and skip video and audio discovery.', video: 'Show videos only and skip image and audio discovery.', audio: 'Show audio sources only.', comic: 'Find ordered JPG and PNG pages and assemble them into one PDF.' })[selectedWebMediaType];
+    mediaTypeHint.textContent = 'ClipGrab finds available images, videos, and audio automatically.';
     renderSavedUrls();
   }
 
   function setSavedFilter(type) {
     savedFilterType = ['all', 'image', 'video', 'audio'].includes(type) ? type : 'all';
-    savedFilterOptions.forEach(option => {
-      const active = option.dataset.savedFilter === savedFilterType;
-      option.classList.toggle('active', active);
-      option.setAttribute('aria-pressed', String(active));
-    });
     renderSavedUrls();
   }
 
@@ -1124,34 +1102,6 @@
     } finally {
       button.disabled = false;
       button.textContent = originalLabel;
-    }
-  }
-
-  async function downloadComicPdf(button) {
-    const sourceUrl = urlInput.value.trim();
-    if (!sourceUrl) return;
-    const originalLabel = button.textContent;
-    button.disabled = true;
-    button.textContent = 'Creating PDF...';
-    try {
-      const response = await fetch('/api/comic', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: sourceUrl, name: resultTitle.textContent }) });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'The comic PDF could not be created.');
-      }
-      const blob = await response.blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${safeFileName(resultTitle.textContent, 'clipgrab-comic')}.pdf`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      setResultStatus('Comic PDF downloaded.', 'success');
-      button.textContent = 'PDF downloaded';
-    } catch (error) {
-      setResultStatus(error.message || 'The comic PDF could not be created.', 'error');
-      button.textContent = originalLabel;
-    } finally {
-      setTimeout(() => { button.disabled = false; if (button.textContent === 'PDF downloaded') button.textContent = originalLabel; }, 1500);
     }
   }
 
@@ -1339,16 +1289,12 @@
     const downloadAllImages = galleryMode && visibleItems.length > 1
       ? '<button class="load-more-media" type="button" data-download-all-images="true">Download all images</button>'
       : '';
-    const createComic = selectedPlatform === 'Web' && selectedWebMediaType === 'comic' && galleryMode && visibleItems.length
-      ? '<button class="load-more-media" type="button" data-create-comic="true">Create PDF from these pages</button>'
-      : '';
-    const galleryActions = previousWindow || nextAction || fetchAgain || downloadAllImages || createComic
-      ? `<div class="gallery-actions">${createComic}${downloadAllImages}${previousWindow}${nextAction}${fetchAgain}</div>`
+    const galleryActions = previousWindow || nextAction || fetchAgain || downloadAllImages
+      ? `<div class="gallery-actions">${downloadAllImages}${previousWindow}${nextAction}${fetchAgain}</div>`
       : '';
     mediaGrid.innerHTML = items.map(item => {
-      const downloadType = item.type === 'image' ? 'image' : item.type === 'audio' ? 'audio' : item.type === 'pdf' ? 'pdf' : 'video';
-      const downloadLabel = downloadType === 'pdf' ? 'Download PDF' : `Download ${downloadType}`;
-      const isPdf = item.type === 'pdf';
+      const downloadType = item.type === 'image' ? 'image' : item.type === 'audio' ? 'audio' : 'video';
+      const downloadLabel = `Download ${downloadType}`;
       const tooLong = item.type === 'video' && Number.isFinite(Number(item.duration)) && Number(item.duration) > Number(item.maxDuration || 900);
       const downloadTarget = item.downloads[downloadType] || '';
       const snapVidFallback = item.type === 'image' && !downloadTarget && failedUrlPlatform() === 'Instagram'
@@ -1593,26 +1539,26 @@
     event.preventDefault();
     const urls = document.getElementById('batch-input').value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
     const status = document.getElementById('batch-status');
-    if (!urls.length) { status.textContent = 'Add at least one URL.'; return; }
+    if (!urls.length) { status.textContent = 'Paste at least one URL.'; return; }
     const invalidUrl = urls.find(value => { try { new URL(value); return false; } catch { return true; } });
     if (invalidUrl) { status.textContent = `${invalidUrl}: Enter a valid URL.`; return; }
     if (selectedPlatform !== 'Web') setActiveTab('Web');
     batchRequestToken++;
     batchSources = urls.map(url => ({ url, items: null, error: '', loading: false }));
     batchMode = true;
-    batchName = batchNameInput.value.trim() || `Batch of ${urls.length} URLs`;
-    batchNameInput.value = batchName;
+    batchName = document.getElementById('batch-name').value.trim() || `Batch of ${urls.length} URLs`;
+    document.getElementById('batch-name').value = batchName;
     resultCard.classList.add('show');
     closeSessionButton.hidden = false;
     resultTitle.textContent = `${batchName}: 1 of ${batchSources.length}`;
-    resultSub.textContent = 'Fetching the first URL. The other URLs will load only when selected.';
-    status.textContent = `${urls.length} URL${urls.length === 1 ? '' : 's'} queued. Fetching the first one...`;
+    resultSub.textContent = 'Fetching the first URL. Other URLs load when selected.';
+    status.textContent = `${urls.length} URL${urls.length === 1 ? '' : 's'} queued.`;
     saveState({ platform: selectedPlatform, url: urls.join('\n'), title: batchName, source: 'batch', items: [] });
     saveSectionState();
     closeWebTools();
     await fetchBatchSource(0);
     const source = batchSources[0];
-    status.textContent = source.error ? `First URL failed: ${source.error}` : `${source.items.length} item${source.items.length === 1 ? '' : 's'} ready. Other URLs load when selected.`;
+    status.textContent = source.error ? `First URL failed: ${source.error}` : `${source.items.length} item${source.items.length === 1 ? '' : 's'} ready.`;
   });
 
   mediaGrid.addEventListener('change', e => {
@@ -1632,10 +1578,6 @@
     }
     const loadMoreButton = e.target.closest('.load-more-media');
     if (loadMoreButton) {
-      if (loadMoreButton.dataset.createComic === 'true') {
-        downloadComicPdf(loadMoreButton);
-        return;
-      }
       if (loadMoreButton.dataset.downloadAllImages === 'true') {
         downloadAllImages(loadMoreButton);
         return;
@@ -1718,10 +1660,10 @@
     const item = button.closest('.media-item');
     const selector = item?.querySelector('.resolution');
     const formatOption = item?.querySelector('.format-option.active');
-    const format = formatOption?.dataset.format || (button.dataset.type === 'pdf' ? 'pdf' : 'video');
+    const format = formatOption?.dataset.format || 'video';
     const target = (selector && selector.value ? selector.dataset.download + '&height=' + encodeURIComponent(selector.value) : button.dataset.url) + (format === 'audio' ? '&format=audio' : '');
     const nameInput = button.closest('.media-item')?.querySelector('.file-name');
-    const extension = format === 'pdf' ? 'pdf' : format === 'audio' ? 'mp3' : button.dataset.type === 'image' ? 'jpg' : 'mp4';
+    const extension = format === 'audio' ? 'mp3' : button.dataset.type === 'image' ? 'jpg' : 'mp4';
     downloadFile(target, button, `${safeFileName(nameInput?.value, 'clipgrab-media')}.${extension}`);
   });
   mediaGrid.addEventListener('error', event => {
@@ -1765,7 +1707,6 @@
     document.getElementById('fetch-form').requestSubmit();
   });
   historyClear.addEventListener('click', () => { saveHistory([]); renderHistory(); });
-  settingsHistoryClear.addEventListener('click', () => { saveHistory([]); renderHistory(); });
   settingsHistoryList.addEventListener('click', event => {
     const button = event.target.closest('[data-settings-history-index]');
     if (!button) return;
@@ -1784,12 +1725,7 @@
   shareButton.addEventListener('click', async () => {
     try { await navigator.share({ title: 'ClipGrab', text: 'Save public media with ClipGrab.', url: window.location.href }); } catch {}
   });
-  mediaTypeOptions.forEach(option => option.addEventListener('click', () => setWebMediaType(option.dataset.mediaType)));
-  batchToggle.addEventListener('click', () => {
-    batchSection.hidden = !batchSection.hidden;
-    batchToggle.setAttribute('aria-expanded', String(!batchSection.hidden));
-    batchToggle.textContent = batchSection.hidden ? 'Add multiple URLs' : 'Hide multiple URL search';
-  });
+  mediaTypeOptions.forEach(option => option.addEventListener('click', () => setWebMediaType('auto')));
   setWebMediaType('auto');
   function saveUrlEntry(url, name) {
     const value = url.trim();
@@ -1816,25 +1752,18 @@
   document.getElementById('save-url-btn').addEventListener('click', () => {
     if (selectedPlatform !== 'Reddit' && saveUrlEntry(urlInput.value, savedUrlName.value)) refreshSavedUrlsAfterSave();
   });
+  document.getElementById('save-batch-btn').addEventListener('click', () => {
+    const urls = document.getElementById('batch-input').value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
+    if (saveBatchEntry(urls, document.getElementById('batch-name').value)) {
+      document.getElementById('batch-status').textContent = 'Batch saved.';
+      renderSavedUrls();
+    }
+  });
   saveCurrentUrlButton.addEventListener('click', () => {
     if (selectedPlatform !== 'Reddit' && saveUrlEntry(urlInput.value, '')) {
       setResultStatus('URL saved in Media Hub.', 'success');
       refreshSavedUrlsAfterSave();
     }
-  });
-  document.getElementById('save-batch-btn').addEventListener('click', () => {
-    const urls = document.getElementById('batch-input').value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
-    if (saveBatchEntry(urls, savedUrlName.value || batchNameInput.value)) refreshSavedUrlsAfterSave();
-  });
-  document.getElementById('rename-batch-btn').addEventListener('click', () => {
-    if (!batchSources.length) return;
-    batchName = batchNameInput.value.trim() || `Batch of ${batchSources.length} URLs`;
-    batchNameInput.value = batchName;
-    renderBatchSource(batchSourceIndex);
-    const state = readState() || {};
-    state.title = batchName;
-    saveState(state);
-    saveSectionState();
   });
   unhideImagesButton.addEventListener('click', () => {
     try { localStorage.removeItem(hiddenImagesKey); } catch {}
@@ -1844,7 +1773,6 @@
   settingsButton.addEventListener('click', openPrivacySettings);
   settingsNavItems.forEach(item => item.addEventListener('click', () => setSettingsSection(item.dataset.settingsSection)));
   settingsBack.addEventListener('click', showSettingsSections);
-  savedFilterOptions.forEach(option => option.addEventListener('click', () => setSavedFilter(option.dataset.savedFilter)));
   refreshCacheButton.addEventListener('click', updateCacheSummary);
   async function clearMediaCache(mediaType) {
     const button = ({ image: clearImageCacheButton, video: clearVideoCacheButton, audio: clearAudioCacheButton })[mediaType];
@@ -1913,8 +1841,8 @@
     mediaGrid.classList.remove('loading', 'gallery-mode');
     mediaGrid.innerHTML = '';
     document.getElementById('batch-input').value = '';
+    document.getElementById('batch-name').value = '';
     document.getElementById('batch-status').textContent = '';
-    batchNameInput.value = '';
     closeGallery();
     closeVideoViewer();
     closeWebTools();
@@ -2023,7 +1951,7 @@
       if (selectedPlatform !== 'Web') setActiveTab('Web');
       if (loadButton.dataset.batch === 'true') {
         document.getElementById('batch-input').value = loadButton.dataset.url || '';
-        batchNameInput.value = loadButton.querySelector('span') ? loadButton.firstChild.textContent.trim() : 'Saved batch';
+        document.getElementById('batch-name').value = loadButton.firstChild.textContent.trim();
         document.getElementById('batch-form').requestSubmit();
       } else {
         urlInput.value = loadButton.dataset.url || '';
