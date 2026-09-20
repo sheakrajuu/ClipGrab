@@ -272,6 +272,20 @@ async function isDirectMedia(parsed) {
   return Boolean(await directMediaType(parsed));
 }
 
+function upgradeInstagramImageUrl(value) {
+  try {
+    const imageUrl = new URL(value);
+    if (!/(^|\.)(cdninstagram\.com|fbcdn\.net)$/i.test(imageUrl.hostname)) return value;
+    const transform = imageUrl.searchParams.get('stp');
+    if (!transform) return value;
+    const upgradedTransform = transform.replace(/^c\d+\.\d+\.\d+\.\d+a_/i, '').replace(/s\d+x\d+/i, 's1080x1080');
+    imageUrl.searchParams.set('stp', upgradedTransform);
+    return imageUrl.toString();
+  } catch {
+    return value;
+  }
+}
+
 function itemFromInfo(info, sourceUrl, index) {
   const heights = [...new Set((info.formats || []).map(format => format.height).filter(height => Number.isInteger(height)))].sort((a, b) => b - a);
   const image = /^(jpg|jpeg|png|gif|webp|avif)$/i.test(info.ext || '');
@@ -280,7 +294,7 @@ function itemFromInfo(info, sourceUrl, index) {
     return image || /\.(?:jpg|jpeg|png|gif|webp|avif)(?:[?#]|$)/i.test(String(value));
   });
   const isImage = image || Boolean(imageUrl);
-  const originalImageUrl = image && imageUrl ? imageUrl : sourceUrl;
+  const originalImageUrl = isImage && imageUrl ? upgradeInstagramImageUrl(imageUrl) : sourceUrl;
   const downloads = {
     video: downloadUrl(sourceUrl, 'video', index),
     image: downloadUrl(originalImageUrl, 'image', index, null, sourceUrl)
@@ -466,16 +480,35 @@ async function extractRenderedPageMedia(parsed) {
     await page.goto(parsed.toString(), { waitUntil: 'domcontentloaded', timeout: metadataTimeoutMs });
     await page.waitForTimeout(600);
     return await page.evaluate(() => {
-      const images = [...document.images].flatMap(image => [image.currentSrc, image.src, image.srcset?.split(',')[0]?.trim().split(/\s+/)[0]]);
+      const upgradeInstagramImageUrl = value => {
+        try {
+          const imageUrl = new URL(value);
+          if (!/(^|\.)(cdninstagram\.com|fbcdn\.net)$/i.test(imageUrl.hostname)) return value;
+          const transform = imageUrl.searchParams.get('stp');
+          if (!transform) return value;
+          const upgradedTransform = transform.replace(/^c\d+\.\d+\.\d+\.\d+a_/i, '').replace(/s\d+x\d+/i, 's1080x1080');
+          imageUrl.searchParams.set('stp', upgradedTransform);
+          return imageUrl.toString();
+        } catch {
+          return value;
+        }
+      };
+      const primaryImageElements = [...document.querySelectorAll('article img')];
+      const fallbackImageElements = [...document.querySelectorAll('main img, [role="main"] img')];
+      const imageElements = primaryImageElements.length ? primaryImageElements : fallbackImageElements;
+      const images = imageElements.flatMap(image => [image.currentSrc, image.src, image.srcset?.split(',')[0]?.trim().split(/\s+/)[0]])
+        .filter(Boolean)
+        .map(upgradeInstagramImageUrl);
       const videos = [...document.querySelectorAll('video, video source, [data-video-src], [data-video-url], [data-video]')]
         .flatMap(element => [element.currentSrc, element.src, element.getAttribute('src'), element.getAttribute('data-src'), element.getAttribute('data-video'), element.getAttribute('data-video-src'), element.getAttribute('data-video-url')]);
+      const stateImages = [];
       const addStateValues = (value, type) => {
         if (!value) return;
         if (Array.isArray(value)) return value.forEach(item => addStateValues(item, type));
         if (typeof value === 'string') {
           const isImage = /image|display_url|url_list/i.test(type);
           const isVideo = /video|playaddr|downloadaddr|contenturl|stream/i.test(type);
-          if (/^https?:\/\//i.test(value) && (isImage || isVideo)) (isImage ? images : videos).push(value);
+          if (/^https?:\/\//i.test(value) && (isImage || isVideo)) (isImage ? stateImages : videos).push(value);
           return;
         }
         if (typeof value !== 'object') return;
@@ -484,6 +517,12 @@ async function extractRenderedPageMedia(parsed) {
       document.querySelectorAll('script').forEach(script => {
         try { addStateValues(JSON.parse(script.textContent), 'state'); } catch {}
       });
+      if (!images.length) {
+        images.push(...[...document.querySelectorAll('meta[property="og:image"], meta[property="og:image:url"], meta[name="twitter:image"]')]
+          .map(meta => meta.content)
+          .filter(Boolean));
+      }
+      if (!images.length) images.push(...stateImages);
       const unique = values => [...new Set(values.filter(value => /^https?:\/\//i.test(value)))];
       return { images: unique(images), videos: unique(videos) };
     });
@@ -600,15 +639,27 @@ app.post('/api/media', async (req, res) => {
       const raw = await runYtDlp(extractorArgs(parsed.toString()));
       const info = JSON.parse(raw);
       if (requestedMediaType !== 'video') assertDurationAllowed(info, parsed);
-      const entries = normalizedExtractorEntries(info);
+      let entries = normalizedExtractorEntries(info);
+      if (/(^|\.)instagram\.com$/i.test(parsed.hostname)) {
+        const postEntries = entries.filter(entry => /(?:^|[?&])ig_cache_key=/i.test(JSON.stringify(entry)));
+        if (postEntries.length) entries = postEntries;
+      }
       if (requestedMediaType !== 'video') entries.forEach(entry => assertDurationAllowed(entry, parsed));
-      const items = entries.length > 1 ? entries.map((entry, position) => itemFromInfo(entry, parsed.toString(), position + 1)) : [itemFromInfo(entries[0] || info, parsed.toString(), 1)];
+      let items = entries.length > 1 ? entries.map((entry, position) => itemFromInfo(entry, parsed.toString(), position + 1)) : [itemFromInfo(entries[0] || info, parsed.toString(), 1)];
+      if (/(^|\.)instagram\.com$/i.test(parsed.hostname)) {
+        const postItems = items.filter(item => /(?:^|[?&])ig_cache_key=/i.test(String(item.sourceUrl || item.thumbnail || '')));
+        if (postItems.length) items = postItems;
+      }
       const data = { title: info.title || items[0].title, thumbnail: info.thumbnail || items[0].thumbnail, source: 'extractor', count: items.length, items };
       metadataCache.set(cacheKey, { data, info, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     } catch (extractorError) {
       if (['auto', 'all', 'image', 'video'].includes(requestedMediaType) && isSocialMediaUrl(parsed)) {
         const rendered = await extractRenderedPageMedia(parsed).catch(() => ({ images: [], videos: [] }));
+        if (/(^|\.)instagram\.com$/i.test(parsed.hostname)) {
+          const postImages = rendered.images.filter(url => /(?:^|[?&])ig_cache_key=/i.test(url));
+          if (postImages.length) rendered.images = postImages;
+        }
         if (rendered.images.length || rendered.videos.length) {
           const data = webMediaData(parsed, requestedMediaType, rendered.images, rendered.videos, []);
           metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });

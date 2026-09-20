@@ -373,8 +373,11 @@
   .file-name{width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fff;font:12px Inter,sans-serif;margin-bottom:8px;}
   .progress-track{height:5px;background:#E8EBE2;border-radius:999px;overflow:hidden;margin:5px 0 10px;}
   .progress-bar{height:100%;width:0;background:var(--accent-dark);transition:width .15s ease;}
-  .media-grid.loading{min-height:150px;}
-  .media-grid.loading::before{content:"";display:block;width:100%;height:120px;border-radius:var(--radius);background:linear-gradient(90deg,#E7EBE2 25%,#F8F9F6 50%,#E7EBE2 75%);background-size:200% 100%;animation:shimmer 1.2s linear infinite;}
+  .media-grid.loading{position:relative;display:grid;place-items:center;min-height:246px;padding:28px;border:1px solid rgba(200,243,90,.24);border-radius:18px;background:radial-gradient(circle at 50% 0,rgba(200,243,90,.16),transparent 48%),linear-gradient(145deg,#18201c,#101613 72%);overflow:hidden;box-shadow:0 18px 42px rgba(16,19,22,.16);}
+  .media-grid.loading::before{content:"";width:76px;height:76px;border:1px solid rgba(200,243,90,.28);border-radius:24px;background:linear-gradient(145deg,rgba(200,243,90,.22),rgba(200,243,90,.03));box-shadow:0 0 0 10px rgba(200,243,90,.04),0 16px 36px rgba(0,0,0,.25);animation:loading-pulse 1.8s ease-in-out infinite;}
+  .media-grid.loading::after{content:"Finding your media\A Preparing the best available quality";position:absolute;top:calc(50% + 42px);white-space:pre;text-align:center;color:#fff;font:600 13px/1.7 Inter,sans-serif;letter-spacing:.01em;animation:loading-copy 1.8s ease-in-out infinite;}
+  @keyframes loading-pulse{0%,100%{transform:scale(.9) rotate(-4deg);opacity:.68;}50%{transform:scale(1) rotate(4deg);opacity:1;}}
+  @keyframes loading-copy{0%,100%{opacity:.62;}50%{opacity:1;}}
   @keyframes shimmer{to{background-position:-200% 0;}}
   .empty-state{grid-column:1 / -1;padding:28px 18px;text-align:center;color:var(--muted);background:#fff;border:1px dashed var(--border);border-radius:var(--radius);}
   .dl-btn.primary{
@@ -654,9 +657,6 @@
   const galleryCounter = document.getElementById('gallery-counter');
   const galleryPrevious = document.getElementById('gallery-prev');
   const galleryNext = document.getElementById('gallery-next');
-  const historyPanel = document.getElementById('history-panel');
-  const historyList = document.getElementById('history-list');
-  const historyClear = document.getElementById('history-clear');
   const shareButton = document.getElementById('share-btn');
   const installButton = document.getElementById('install-btn');
   const privateMode = document.getElementById('private-mode');
@@ -776,8 +776,6 @@
 
   function renderHistory() {
     const entries = readHistory();
-    historyPanel.hidden = entries.length === 0;
-    historyList.innerHTML = entries.map((entry, index) => `<button class="history-item" type="button" data-history-index="${index}" title="${escapeHtml(entry.url)}">${escapeHtml(entry.name || entry.platform || 'Recent link')}</button>`).join('');
     if (settingsHistoryList) settingsHistoryList.innerHTML = entries.length
       ? entries.map((entry, index) => `<button class="settings-history-item" type="button" data-settings-history-index="${index}" title="${escapeHtml(entry.url)}"><span class="settings-history-url">${escapeHtml(entry.url)}</span><span class="settings-history-platform">${escapeHtml(entry.platform || 'Web')}</span></button>`).join('')
       : '<div class="settings-history-empty">No recent history yet.</div>';
@@ -1643,17 +1641,7 @@
   document.getElementById('paste-btn').addEventListener('click', async () => {
     try { urlInput.value = await navigator.clipboard.readText(); urlInput.focus(); } catch { urlInput.focus(); }
   });
-  historyList.addEventListener('click', event => {
-    const button = event.target.closest('.history-item');
-    if (!button) return;
-    const entry = readHistory()[Number(button.dataset.historyIndex)];
-    if (!entry) return;
-    const platformTab = document.querySelector(`.tab[data-platform="${entry.platform}"]`) || document.querySelector('.tab[data-platform="Web"]');
-    platformTab?.click();
-    urlInput.value = entry.url;
-    document.getElementById('fetch-form').requestSubmit();
-  });
-  historyClear.addEventListener('click', () => { saveHistory([]); renderHistory(); });
+  document.getElementById('history-clear-settings').addEventListener('click', () => { saveHistory([]); renderHistory(); });
   settingsHistoryList.addEventListener('click', event => {
     const button = event.target.closest('[data-settings-history-index]');
     if (!button) return;
