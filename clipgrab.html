@@ -1253,8 +1253,6 @@
           ? (item.thumbnail ? `<img class="image-preview" src="${escapeHtml(item.thumbnail)}"${item.sourceUrl ? ` data-source-src="${escapeHtml(item.sourceUrl)}"` : ''} data-gallery-src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.title || 'Image')}">` : '<div class="result-thumb"></div>')
         : item.type === 'audio'
           ? `<audio controls preload="metadata" src="${escapeHtml(item.downloads.audio || '')}"></audio>`
-          : isPdf
-            ? '<div class="result-thumb" aria-label="PDF document"></div>'
           : (tooLong ? '<div class="result-thumb"></div>' : `<video controls preload="metadata"${item.thumbnail ? ` poster="${escapeHtml(item.thumbnail)}"` : ''} src="${escapeHtml(item.downloads.video)}&preview=1"></video>`);
       const warning = tooLong ? `<div class="result-sub">This video is too long to download.</div>` : '';
       const mediaMeta = [item.fileType || item.type?.toUpperCase(), item.sourceDomain].filter(Boolean).join(' · ');
@@ -1403,7 +1401,7 @@
     if (!data.items.length) throw new Error('No downloadable media was found at this URL.');
     resultTitle.textContent = data.title || detectPlatform(value) + ' media ready';
     const scan = data.scan;
-    const summary = scan?.pdfs ? `${scan.pdfs} PDF${scan.pdfs === 1 ? '' : 's'} ready to download.` : scan ? `Found ${scan.images} image${scan.images === 1 ? '' : 's'}, ${scan.videos} video${scan.videos === 1 ? '' : 's'}, and ${scan.audio} audio source${scan.audio === 1 ? '' : 's'}.` : `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found.`;
+    const summary = scan ? `Found ${scan.images} image${scan.images === 1 ? '' : 's'}, ${scan.videos} video${scan.videos === 1 ? '' : 's'}, and ${scan.audio} audio source${scan.audio === 1 ? '' : 's'}.` : `${data.count || data.items.length} item${(data.count || data.items.length) === 1 ? '' : 's'} found.`;
     resultSub.textContent = `${summary} Choose a format where available.`;
     setResultStatus('Media ready.', 'success');
     copyResultButton.hidden = false;
