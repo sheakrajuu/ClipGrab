@@ -6,7 +6,7 @@ window.clipgrabSections.Reddit = {
   steps: [
     'Open the post, tap Share, then Copy Link.',
     'Paste the link into the box above and hit Find media.',
-    'Switch to <b>Web</b> mode and try the public post link.'
+    'Switch to <b>Web</b> mode and try the public Reddit link.'
   ],
   downloadTarget() { return ''; },
   extension() { return 'mp4'; }
