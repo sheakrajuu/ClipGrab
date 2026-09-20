@@ -71,6 +71,16 @@ test('homepage and PWA assets are available', async () => {
   assert.match(appIcon.headers.get('content-type'), /image\/png/);
 });
 
+test('each downloader section exposes its own browser module', async () => {
+  const sections = { tiktok: 'TikTok', instagram: 'Instagram', facebook: 'Facebook', twitter: 'Twitter', reddit: 'Reddit', web: 'Web' };
+  for (const [section, platform] of Object.entries(sections)) {
+    const response = await fetch(`${baseUrl}/platforms/${section}.js`);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /javascript/);
+    assert.match(await response.text(), new RegExp(`clipgrabSections\\.${platform}`));
+  }
+});
+
 test('extractor arguments keep the original URL separate from cache mode', () => {
   assert.deepEqual(app.extractorArgs('https://example.com/video'), [
     '--dump-single-json', '--yes-playlist', '--no-warnings', '--socket-timeout', '20',
