@@ -8,6 +8,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=7">
 <meta name="theme-color" content="#000000">
+<meta name="clipgrab-api-origin" content="">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -634,6 +635,12 @@
   const copyResultButton = document.getElementById('copy-result-btn');
   const mediaGrid = document.getElementById('media-grid');
   const fetchSubmitButton = document.querySelector('#fetch-form button[type="submit"]');
+  const configuredApiOrigin = document.querySelector('meta[name="clipgrab-api-origin"]')?.content.trim();
+  const apiOrigin = configuredApiOrigin || window.location.origin;
+
+  function apiUrl(path) {
+    return new URL(path, `${apiOrigin.replace(/\/$/, '')}/`).toString();
+  }
   const savedUrlSection = document.getElementById('saved-url-section');
   const savedUrlName = document.getElementById('saved-url-name');
   const saveCurrentUrlButton = document.getElementById('save-current-url-btn');
@@ -955,7 +962,7 @@
     assertRequestAllowed();
     const body = { url };
     if (selectedPlatform === 'Web' && mediaType) body.mediaType = mediaType;
-    const response = await fetch('/api/media', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+    const response = await fetch(apiUrl('/api/media'), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
     if (response.status === 429) {
       const retryAfter = Number(response.headers.get('Retry-After')) || 60;
       startRequestCooldown(retryAfter);
@@ -999,7 +1006,7 @@
     const originalLabel = button.textContent;
     const progress = button.closest('.media-item')?.querySelector('.progress-bar');
     try {
-      const url = new URL(target, window.location.origin);
+      const url = new URL(target, apiOrigin);
       url.searchParams.set('name', safeFileName(fileName));
       setResultStatus('Preparing your download...');
       const response = await fetch(url);
@@ -1095,7 +1102,7 @@
         const cachedResult = getCachedWebResult(urls[index], mediaType);
         let data = cachedResult;
         if (!data) {
-          const response = await fetch('/api/media', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: urls[index], mediaType }) });
+          const response = await fetch(apiUrl('/api/media'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: urls[index], mediaType }) });
           const responseText = await response.text();
           try { data = JSON.parse(responseText); } catch { data = { error: responseText.trim() }; }
           if (!response.ok || !Array.isArray(data.items)) throw new Error(data.error || 'Could not find media for offline viewing.');

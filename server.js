@@ -34,6 +34,8 @@ const pageSections = ['header', 'hero', 'web-tools', 'cross-links', 'content', '
 
 function renderClipgrabPage() {
   let page = fs.readFileSync(path.join(__dirname, 'clipgrab.html'), 'utf8');
+  const apiOrigin = String(process.env.CLIPGRAB_API_ORIGIN || '').trim().replace(/\/$/, '');
+  page = page.replace('<meta name="clipgrab-api-origin" content="">', `<meta name="clipgrab-api-origin" content="${apiOrigin.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">`);
   for (const section of pageSections) {
     const marker = `<!-- SECTION:${section} -->`;
     const partial = fs.readFileSync(path.join(__dirname, 'sections', `${section}.html`), 'utf8');

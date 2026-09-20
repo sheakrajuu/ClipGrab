@@ -30,6 +30,8 @@ Each module owns its section copy and media download target/extension rules. The
 
 Render runs the Node/Express server, so the page partials and `/api/media` backend work together in production. GitHub can store and version all of these files; GitHub Pages alone cannot run the Node backend.
 
+If the frontend is hosted separately from the Node service, set `CLIPGRAB_API_ORIGIN` on the Node service to its public origin, for example `https://clipgrab.onrender.com`. The server injects that origin into the page so media requests and download links reach the backend instead of the frontend host.
+
 ## Run locally
 
 1. Install Node.js 18 or newer.
