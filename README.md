@@ -13,6 +13,17 @@ The reusable page sections live in separate files:
 - `sections/content.html`
 - `sections/footer.html`
 
+Downloader-specific browser behavior lives in separate modules:
+
+- `sections/platforms/tiktok.js`
+- `sections/platforms/instagram.js`
+- `sections/platforms/facebook.js`
+- `sections/platforms/twitter.js`
+- `sections/platforms/reddit.js`
+- `sections/platforms/web.js`
+
+Each module owns its section copy and media download target/extension rules. The shared transfer, security, extraction, and preview code remains in `server.js`.
+
 `server.js` combines those partials when serving `/` or `/clipgrab.html`. Keep the section marker names in `clipgrab.html` synchronized with the files in `sections/`.
 
 ## Render deployment

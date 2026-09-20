@@ -45,6 +45,7 @@ function renderClipgrabPage() {
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '10kb' }));
+app.use('/platforms', express.static(path.join(__dirname, 'sections', 'platforms')));
 app.use((req, res, next) => {
   const requestId = crypto.randomUUID();
   req.requestId = requestId;
@@ -287,7 +288,8 @@ function itemFromInfo(info, sourceUrl, index) {
   return {
     index,
     title: info.title || `Media ${index}`,
-    thumbnail: info.thumbnail ? previewUrl(info.thumbnail, sourceUrl) : '',
+    thumbnail: isImage ? previewUrl(originalImageUrl, sourceUrl) : info.thumbnail ? previewUrl(info.thumbnail, sourceUrl) : '',
+    sourceUrl: isImage ? originalImageUrl : undefined,
     type: isImage ? 'image' : 'video',
     duration: Number.isFinite(Number(info.duration)) ? Number(info.duration) : null,
     maxDuration: durationLimitForUrl(new URL(sourceUrl)),
@@ -320,6 +322,10 @@ function imageEntriesFromInfo(info) {
   };
   for (const key of imageCollections) visit(info[key]);
   return candidates;
+}
+
+function hasDirectMediaExtension(parsed) {
+  return /\.(?:pdf|mp4|webm|mov|m4v|mp3|m4a|aac|ogg|oga|wav|flac|jpg|jpeg|png|gif|webp|avif)(?:\?.*)?$/i.test(parsed.pathname);
 }
 
 function normalizedExtractorEntries(info) {
@@ -414,6 +420,78 @@ async function extractRenderedPageImages(parsed) {
   }
 }
 
+async function extractRenderedPageVideos(parsed) {
+  if (process.env.CLIPGRAB_BROWSER_FALLBACK === '0' || !isSocialMediaUrl(parsed)) return [];
+  let playwright;
+  try { playwright = require('playwright'); } catch { return []; }
+  const browser = await playwright.chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36' });
+    await page.goto(parsed.toString(), { waitUntil: 'domcontentloaded', timeout: metadataTimeoutMs });
+    await page.waitForTimeout(1500);
+    const candidates = await page.evaluate(() => {
+      const values = [...document.querySelectorAll('video, video source, [data-video-src], [data-video-url], [data-video]')]
+        .flatMap(element => [element.currentSrc, element.src, element.getAttribute('src'), element.getAttribute('data-src'), element.getAttribute('data-video'), element.getAttribute('data-video-src'), element.getAttribute('data-video-url')]);
+      const addStateVideos = value => {
+        if (!value) return;
+        if (Array.isArray(value)) return value.forEach(addStateVideos);
+        if (typeof value === 'string') {
+          if (/^https?:\/\//i.test(value) && /(?:\.mp4|\.webm|\.mov|video|playaddr|downloadaddr)/i.test(value)) values.push(value);
+          return;
+        }
+        if (typeof value !== 'object') return;
+        for (const [key, child] of Object.entries(value)) {
+          if (/video|playaddr|downloadaddr|contenturl|stream/i.test(key)) addStateVideos(child);
+          else if (child && typeof child === 'object') addStateVideos(child);
+        }
+      };
+      document.querySelectorAll('script').forEach(script => {
+        try { addStateVideos(JSON.parse(script.textContent)); } catch {}
+      });
+      return values.filter(value => /^https?:\/\//i.test(value));
+    });
+    return [...new Set(candidates)];
+  } finally {
+    await browser.close();
+  }
+}
+
+async function extractRenderedPageMedia(parsed) {
+  if (process.env.CLIPGRAB_BROWSER_FALLBACK === '0' || !isSocialMediaUrl(parsed)) return { images: [], videos: [] };
+  let playwright;
+  try { playwright = require('playwright'); } catch { return { images: [], videos: [] }; }
+  const browser = await playwright.chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36' });
+    await page.goto(parsed.toString(), { waitUntil: 'domcontentloaded', timeout: metadataTimeoutMs });
+    await page.waitForTimeout(600);
+    return await page.evaluate(() => {
+      const images = [...document.images].flatMap(image => [image.currentSrc, image.src, image.srcset?.split(',')[0]?.trim().split(/\s+/)[0]]);
+      const videos = [...document.querySelectorAll('video, video source, [data-video-src], [data-video-url], [data-video]')]
+        .flatMap(element => [element.currentSrc, element.src, element.getAttribute('src'), element.getAttribute('data-src'), element.getAttribute('data-video'), element.getAttribute('data-video-src'), element.getAttribute('data-video-url')]);
+      const addStateValues = (value, type) => {
+        if (!value) return;
+        if (Array.isArray(value)) return value.forEach(item => addStateValues(item, type));
+        if (typeof value === 'string') {
+          const isImage = /image|display_url|url_list/i.test(type);
+          const isVideo = /video|playaddr|downloadaddr|contenturl|stream/i.test(type);
+          if (/^https?:\/\//i.test(value) && (isImage || isVideo)) (isImage ? images : videos).push(value);
+          return;
+        }
+        if (typeof value !== 'object') return;
+        for (const [key, child] of Object.entries(value)) addStateValues(child, key);
+      };
+      document.querySelectorAll('script').forEach(script => {
+        try { addStateValues(JSON.parse(script.textContent), 'state'); } catch {}
+      });
+      const unique = values => [...new Set(values.filter(value => /^https?:\/\//i.test(value)))];
+      return { images: unique(images), videos: unique(videos) };
+    });
+  } finally {
+    await browser.close();
+  }
+}
+
 async function extractPageVideos(parsed) {
   const isTikTok = /(^|\.)tiktok\.com$/i.test(parsed.hostname);
   const response = await fetch(parsed, {
@@ -483,7 +561,7 @@ app.post('/api/media', async (req, res) => {
     const cached = metadataCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return res.json(cached.data);
     metadataCache.delete(cacheKey);
-    const directType = await directMediaType(parsed);
+    const directType = isSocialMediaUrl(parsed) && !hasDirectMediaExtension(parsed) ? null : await directMediaType(parsed);
     if (directType && !['auto', 'all', directType].includes(requestedMediaType)) {
       throw new Error(`This URL contains a ${directType}; choose ${directType} mode or Auto detect.`);
     }
@@ -529,10 +607,10 @@ app.post('/api/media', async (req, res) => {
       metadataCache.set(cacheKey, { data, info, expiresAt: Date.now() + metadataCacheTtl });
       return res.json(data);
     } catch (extractorError) {
-      if (['auto', 'all', 'image'].includes(requestedMediaType) && isSocialMediaUrl(parsed)) {
-        const renderedImages = await extractRenderedPageImages(parsed).catch(() => []);
-        if (renderedImages.length) {
-          const data = webMediaData(parsed, requestedMediaType, renderedImages, [], []);
+      if (['auto', 'all', 'image', 'video'].includes(requestedMediaType) && isSocialMediaUrl(parsed)) {
+        const rendered = await extractRenderedPageMedia(parsed).catch(() => ({ images: [], videos: [] }));
+        if (rendered.images.length || rendered.videos.length) {
+          const data = webMediaData(parsed, requestedMediaType, rendered.images, rendered.videos, []);
           metadataCache.set(cacheKey, { data, expiresAt: Date.now() + metadataCacheTtl });
           return res.json(data);
         }
@@ -583,7 +661,9 @@ app.get('/api/download', async (req, res) => {
     const isPreview = req.query.preview === '1';
     logStage('download request', parsed, format);
     const sourceExtractorOptions = extractorOptions(parsed.toString());
-    const directMedia = format === 'image' ? (await directMediaType(parsed)) === format : await isDirectMedia(parsed);
+    const directMedia = format === 'image'
+      ? true
+      : hasDirectMediaExtension(parsed) || (!isSocialMediaUrl(parsed) && await isDirectMedia(parsed));
     if (directMedia && format === 'video' && /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(parsed.pathname)) {
       try {
         const metadata = JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', '--no-playlist', ...sourceExtractorOptions, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
@@ -616,10 +696,11 @@ app.get('/api/download', async (req, res) => {
     const height = Number.parseInt(req.query.height, 10);
     const playlistArgs = Number.isInteger(itemIndex) && itemIndex > 0 ? ['--playlist-items', String(itemIndex)] : ['--no-playlist'];
     if (format === 'video') {
-      const cached = metadataCache.get(parsed.toString());
-      const metadata = cached && cached.expiresAt > Date.now() && cached.info
-        ? cached.info
-        : JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
+      const cached = ['auto', 'all', 'video', 'image', 'audio']
+        .map(mode => metadataCache.get(`${mode}:${parsed.toString()}`))
+        .find(entry => entry && entry.expiresAt > Date.now() && entry.info);
+      const metadata = cached?.info
+        || JSON.parse(await runYtDlp(['--dump-single-json', '--no-warnings', ...sourceExtractorOptions, ...playlistArgs, '--socket-timeout', '20', '--retries', '2', parsed.toString()]));
       if (!isPreview) {
         assertDurationAllowed(metadata, parsed);
         flattenEntries(metadata).forEach(entry => assertDurationAllowed(entry, parsed));
@@ -707,6 +788,7 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'clipgrab.html')));
 if (require.main === module) app.listen(port, () => console.log(`ClipGrab running at http://localhost:${port}`));
 app.extractPageImages = extractPageImages;
 app.extractRenderedPageImages = extractRenderedPageImages;
+app.extractRenderedPageVideos = extractRenderedPageVideos;
 app.extractPageVideos = extractPageVideos;
 app.extractorArgs = extractorArgs;
 app.isTikTokPhotoPost = isTikTokPhotoPost;

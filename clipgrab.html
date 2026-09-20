@@ -607,69 +607,14 @@
 <!-- SECTION:content -->
 <!-- SECTION:footer -->
 
+<script src="/platforms/tiktok.js"></script>
+<script src="/platforms/instagram.js"></script>
+<script src="/platforms/facebook.js"></script>
+<script src="/platforms/twitter.js"></script>
+<script src="/platforms/reddit.js"></script>
+<script src="/platforms/web.js"></script>
 <script>
-  const platformCopy = {
-    TikTok: {
-      title: "Download TikTok videos and images",
-      sub: "Paste a public link and save the media in its original quality.",
-      placeholder: "Paste a TikTok link here",
-      steps: [
-        "Open the app, tap <b>Share</b>, then <b>Copy Link</b> on the video you want.",
-        "Come back here, paste the link into the box above, and select <b>Find media</b>.",
-        "Choose <b>MP4</b> or <b>MP3</b> and save it straight to your device."
-      ]
-    },
-    Instagram: {
-      title: "Download Instagram photos and videos",
-      sub: "Save photos, videos, reels and public posts in one tap.",
-      placeholder: "Paste Instagram link here",
-      steps: [
-        "Tap the <b>···</b> menu on the post, then <b>Copy Link</b>.",
-        "Paste the link into the box above and select <b>Find media</b>.",
-        "Choose <b>Photo</b> or <b>Video</b> to save it to your device."
-      ]
-    },
-    Facebook: {
-      title: "Download Facebook videos and images",
-      sub: "Save public Facebook media in high quality.",
-      placeholder: "Paste Facebook video link here",
-      steps: [
-        "Tap the <b>···</b> menu on the video, then <b>Copy Link</b>.",
-        "Paste the link into the box above and select <b>Find media</b>.",
-        "Pick <b>MP4</b> or <b>MP3</b> and wait for it to save."
-      ]
-    },
-    "Twitter": {
-      title: "Download videos, images and GIFs from X",
-      sub: "Grab public media from any X post.",
-      placeholder: "Paste Twitter / X link here",
-      steps: [
-        "Tap <b>Share</b> on the post, then <b>Copy Link</b>.",
-        "Paste the link into the box above and select <b>Find media</b>.",
-        "Choose <b>MP4</b> or <b>MP3</b> to finish saving."
-      ]
-    },
-    Reddit: {
-      title: "Reddit media",
-      sub: "Use the Web scanner for public Reddit media. Some posts may not resolve.",
-      placeholder: "Paste a Reddit post link here",
-      steps: [
-        "Open the post, tap Share, then Copy Link.",
-        "Paste the link into the box above and hit Find media.",
-        "Switch to <b>Web</b> mode and try the public post link."
-      ]
-    },
-    Web: {
-      title: "Find media on any public website",
-      sub: "Scan a public page for images, videos, and audio, then choose what to keep.",
-      placeholder: "Paste a public page or direct media URL",
-      steps: [
-        "Copy the address of a public page or direct media file.",
-        "ClipGrab detects the available media automatically.",
-        "Review the result and download the media you need."
-      ]
-    }
-  };
+  const platformCopy = window.clipgrabSections;
 
   const tabs = document.querySelectorAll('.tab');
   const heroTitle = document.getElementById('hero-title');
@@ -758,6 +703,8 @@
   const webResultsCacheKey = 'clipgrab-web-results-cache-v1';
   const privacySettingsKey = 'clipgrab-privacy-settings-v1';
   const offlineCacheNames = { image: 'clipgrab-image-cache-v1', video: 'clipgrab-video-cache-v1', audio: 'clipgrab-audio-cache-v1' };
+
+  function activeSection() { return platformCopy[selectedPlatform] || platformCopy.Web; }
 
   function readPrivacySettings() {
     try { return { privateMode: false, noHistory: false, offline: false, ...JSON.parse(localStorage.getItem(privacySettingsKey) || '{}') }; } catch { return { privateMode: false, noHistory: false, offline: false }; }
@@ -1662,10 +1609,10 @@
     const item = button.closest('.media-item');
     const selector = item?.querySelector('.resolution');
     const formatOption = item?.querySelector('.format-option.active');
-    const format = formatOption?.dataset.format || 'video';
-    const target = (selector && selector.value ? selector.dataset.download + '&height=' + encodeURIComponent(selector.value) : button.dataset.url) + (format === 'audio' ? '&format=audio' : '');
+    const format = formatOption?.dataset.format || button.dataset.type || 'video';
+    const target = activeSection().downloadTarget(renderedMediaItems.find(entry => entry.id === item?.dataset.mediaId) || {}, format, selector?.value) || button.dataset.url;
     const nameInput = button.closest('.media-item')?.querySelector('.file-name');
-    const extension = format === 'audio' ? 'mp3' : button.dataset.type === 'image' ? 'jpg' : 'mp4';
+    const extension = activeSection().extension(renderedMediaItems.find(entry => entry.id === item?.dataset.mediaId) || {}, format);
     downloadFile(target, button, `${safeFileName(nameInput?.value, 'clipgrab-media')}.${extension}`);
   });
   mediaGrid.addEventListener('error', event => {
