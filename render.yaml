@@ -10,3 +10,5 @@ services:
         value: 20
       - key: CLIPGRAB_BROWSER_FALLBACK
         value: '1'
+      - key: CLIPGRAB_API_ORIGIN
+        value: https://clipgrab-mtcp.onrender.com
